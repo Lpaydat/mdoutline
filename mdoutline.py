@@ -5,6 +5,8 @@ Extracts ATX-style headings from Markdown content and renders them as an outline
 
 from __future__ import annotations
 
+import argparse
+import sys
 from collections.abc import Iterable
 
 
@@ -134,3 +136,40 @@ def render_outline(headings: list[tuple[int, str]]) -> str:
             lines.append(f"{indent}-")
 
     return "\n".join(lines) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point for mdoutline.
+
+    Args:
+        argv: Command-line arguments (None uses sys.argv).
+
+    Returns:
+        0 on success, 1 on error.
+    """
+    parser = argparse.ArgumentParser(description="Extract and print a Markdown outline.")
+    parser.add_argument("file", nargs="?", help="Markdown file to process (default: stdin)")
+    args = parser.parse_args(argv)
+
+    try:
+        if args.file:
+            with open(args.file, encoding="utf-8") as f:
+                content = f.read()
+        else:
+            content = sys.stdin.read()
+    except OSError as e:
+        print(f"mdoutline: cannot read '{args.file}': {e.strerror}", file=sys.stderr)
+        return 1
+    except UnicodeDecodeError as e:
+        print(f"mdoutline: cannot read '{args.file}': {e.reason}", file=sys.stderr)
+        return 1
+
+    lines = content.splitlines()
+    headings = extract_headings(lines)
+    outline = render_outline(headings)
+    sys.stdout.write(outline)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
