@@ -115,6 +115,26 @@ def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
     return headings
 
 
+def filter_by_depth(
+    headings: list[tuple[int, str]], max_depth: int | None
+) -> list[tuple[int, str]]:
+    """Filter headings by maximum depth.
+
+    Args:
+        headings: A list of (depth, text) tuples from extract_headings().
+        max_depth: Maximum depth to keep (inclusive). If None, returns all
+            headings without filtering.
+
+    Returns:
+        A new list containing only headings with depth <= max_depth.
+        Preserves original order and depth values. Does not mutate the input
+        list.
+    """
+    if max_depth is None:
+        return list(headings)
+    return [(depth, text) for depth, text in headings if depth <= max_depth]
+
+
 def render_outline(headings: list[tuple[int, str]]) -> str:
     """Render a list of headings as an outline string.
 

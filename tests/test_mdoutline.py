@@ -446,3 +446,110 @@ def test_extract_and_render_integration():
         "  - Conclusion\n"
     )
     assert outline == expected
+
+
+def test_filter_by_depth_keeps_shallow_headings():
+    """filter_by_depth keeps headings with depth <= max_depth."""
+    headings = [(1, "H1"), (2, "H2"), (3, "H3"), (4, "H4")]
+    result = mdoutline.filter_by_depth(headings, 2)
+    assert result == [(1, "H1"), (2, "H2")]
+
+
+def test_filter_by_depth_drops_deeper_headings():
+    """filter_by_depth drops headings deeper than max_depth."""
+    headings = [(1, "One"), (2, "Two"), (3, "Three"), (4, "Four")]
+    result = mdoutline.filter_by_depth(headings, 1)
+    assert result == [(1, "One")]
+
+
+def test_filter_by_depth_none_returns_all():
+    """filter_by_depth with max_depth=None returns all headings unchanged."""
+    headings = [(1, "A"), (2, "B"), (3, "C")]
+    result = mdoutline.filter_by_depth(headings, None)
+    assert result == [(1, "A"), (2, "B"), (3, "C")]
+
+
+def test_filter_by_depth_preserves_order():
+    """filter_by_depth preserves the original order of headings."""
+    headings = [(3, "Deep"), (1, "Shallow"), (2, "Medium"), (4, "Deepest")]
+    result = mdoutline.filter_by_depth(headings, 2)
+    assert result == [(1, "Shallow"), (2, "Medium")]
+
+
+def test_filter_by_depth_preserves_depth_values():
+    """filter_by_depth does not re-level depth values."""
+    headings = [(1, "H1"), (3, "H3")]
+    result = mdoutline.filter_by_depth(headings, 3)
+    # H3 should keep depth 3, not be re-leveled to 2
+    assert result == [(1, "H1"), (3, "H3")]
+
+
+def test_filter_by_depth_empty_input():
+    """filter_by_depth with empty input returns empty list."""
+    result = mdoutline.filter_by_depth([], 2)
+    assert result == []
+
+
+def test_filter_by_depth_max_depth_one_only_h1():
+    """filter_by_depth with max_depth=1 keeps only h1 headings."""
+    headings = [(1, "Title"), (2, "Section"), (1, "Another"), (3, "Sub")]
+    result = mdoutline.filter_by_depth(headings, 1)
+    assert result == [(1, "Title"), (1, "Another")]
+
+
+def test_filter_by_depth_max_depth_greater_than_deepest():
+    """filter_by_depth with max_depth >= deepest keeps everything."""
+    headings = [(1, "A"), (2, "B"), (3, "C")]
+    result = mdoutline.filter_by_depth(headings, 10)
+    assert result == [(1, "A"), (2, "B"), (3, "C")]
+
+
+def test_filter_by_depth_max_depth_equals_deepest():
+    """filter_by_depth with max_depth equal to deepest keeps everything."""
+    headings = [(1, "A"), (2, "B"), (4, "D")]
+    result = mdoutline.filter_by_depth(headings, 4)
+    assert result == [(1, "A"), (2, "B"), (4, "D")]
+
+
+def test_filter_by_depth_does_not_mutate_input():
+    """filter_by_depth does not mutate the input list."""
+    headings = [(1, "A"), (2, "B"), (3, "C")]
+    original = headings.copy()
+    mdoutline.filter_by_depth(headings, 2)
+    assert headings == original
+
+
+def test_filter_by_depth_returns_new_list():
+    """filter_by_depth returns a new list, not the input."""
+    headings = [(1, "A"), (2, "B")]
+    result = mdoutline.filter_by_depth(headings, 1)
+    assert result is not headings
+
+
+def test_filter_by_depth_none_returns_copy():
+    """filter_by_depth with max_depth=None returns a copy of the input."""
+    headings = [(1, "A"), (2, "B")]
+    result = mdoutline.filter_by_depth(headings, None)
+    assert result == headings
+    assert result is not headings
+
+
+def test_filter_by_depth_boundary_values():
+    """filter_by_depth works at depth boundaries."""
+    headings = [(1, "H1"), (2, "H2"), (3, "H3"), (4, "H4"), (5, "H5"), (6, "H6")]
+    result = mdoutline.filter_by_depth(headings, 3)
+    assert result == [(1, "H1"), (2, "H2"), (3, "H3")]
+
+
+def test_filter_by_depth_all_deeper_than_max():
+    """filter_by_depth returns empty list when all headings are deeper."""
+    headings = [(2, "H2"), (3, "H3"), (4, "H4")]
+    result = mdoutline.filter_by_depth(headings, 1)
+    assert result == []
+
+
+def test_filter_by_depth_all_shallow_or_equal():
+    """filter_by_depth keeps all when all are at or below max_depth."""
+    headings = [(1, "H1"), (1, "Another H1"), (2, "H2")]
+    result = mdoutline.filter_by_depth(headings, 2)
+    assert result == [(1, "H1"), (1, "Another H1"), (2, "H2")]
