@@ -184,11 +184,12 @@ def number_headings(headings: list[tuple[int, str]]) -> list[tuple[int, str, str
     return result
 
 
-def render_outline(headings: list[tuple[int, str]]) -> str:
+def render_outline(headings: list[tuple[int, str]] | list[tuple[int, str, str]]) -> str:
     """Render a list of headings as an outline string.
 
     Args:
-        headings: A list of (depth, text) tuples from extract_headings().
+        headings: A list of (depth, text) tuples from extract_headings(),
+            or (depth, text, number) tuples from number_headings().
 
     Returns:
         A string with one line per heading, indented by 2 spaces per depth
@@ -198,12 +199,27 @@ def render_outline(headings: list[tuple[int, str]]) -> str:
         return ""
 
     lines: list[str] = []
-    for depth, text in headings:
-        indent = "  " * (depth - 1)
-        if text:
-            lines.append(f"{indent}- {text}")
+    for heading in headings:
+        # Support both (depth, text) and (depth, text, number) formats
+        if len(heading) == 2:
+            depth, text = heading
+            number = None
         else:
-            lines.append(f"{indent}-")
+            depth, text, number = heading
+
+        indent = "  " * (depth - 1)
+        if number is not None:
+            # Numbered format: "- number text" or "- number" for empty text
+            if text:
+                lines.append(f"{indent}- {number} {text}")
+            else:
+                lines.append(f"{indent}- {number}")
+        else:
+            # Plain format
+            if text:
+                lines.append(f"{indent}- {text}")
+            else:
+                lines.append(f"{indent}-")
 
     return "\n".join(lines) + "\n"
 
@@ -247,6 +263,12 @@ def main(argv: list[str] | None = None) -> int:
         metavar="N",
         help="maximum heading depth to include (1-6, default: all depths)",
     )
+    parser.add_argument(
+        "--numbers",
+        action="store_true",
+        default=False,
+        help="show hierarchical section numbers for each heading",
+    )
     args = parser.parse_args(argv)
 
     # Determine source name for error messages
@@ -273,6 +295,8 @@ def main(argv: list[str] | None = None) -> int:
     lines = content.splitlines()
     headings = extract_headings(lines)
     headings = filter_by_depth(headings, args.max_depth)
+    if args.numbers:
+        headings = number_headings(headings)
     outline = render_outline(headings)
 
     # Handle broken pipe quietly (like coreutils tools)
