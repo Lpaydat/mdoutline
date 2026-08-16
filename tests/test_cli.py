@@ -62,9 +62,9 @@ def test_empty_stdin(run_cli):
 
 def test_file_with_no_headings(tmp_path, run_cli, write_md_file):
     """Test a file with no headings."""
-    write_md_file("no_headings.md", "Just some text\nMore text\nEven more text\n")
+    test_file = write_md_file("no_headings.md", "Just some text\nMore text\nEven more text\n")
 
-    result = run_cli([str(tmp_path / "no_headings.md")])
+    result = run_cli([str(test_file)])
 
     assert result.returncode == 0
     assert result.stdout == ""
@@ -94,9 +94,9 @@ def test_broken_pipe_no_traceback(run_cli_pipeline):
 def test_bom_file(tmp_path, run_cli, write_md_file):
     """Test UTF-8 BOM is handled correctly for file input."""
     # Write BOM + content (Python's \ufeff encodes to UTF-8 BOM)
-    write_md_file("bom.md", "\ufeff# Title\n## Section\n")
+    test_file = write_md_file("bom.md", "\ufeff# Title\n## Section\n")
 
-    result = run_cli([str(tmp_path / "bom.md")])
+    result = run_cli([str(test_file)])
 
     expected = "- Title\n  - Section\n"
     assert result.returncode == 0
@@ -146,9 +146,9 @@ def test_invalid_utf8_stdin(run_cli):
 
 def test_max_depth_file(tmp_path, run_cli, write_md_file):
     """Test --max-depth limits heading depth in file mode."""
-    write_md_file("depth.md", "# H1\n## H2-1\n### H3-1\n#### H4-1\n## H2-2\n### H3-2\n")
+    test_file = write_md_file("depth.md", "# H1\n## H2-1\n### H3-1\n#### H4-1\n## H2-2\n### H3-2\n")
 
-    result = run_cli(["--max-depth", "2", str(tmp_path / "depth.md")])
+    result = run_cli(["--max-depth", "2", str(test_file)])
 
     expected = "- H1\n  - H2-1\n  - H2-2\n"
     assert result.returncode == 0
@@ -170,11 +170,11 @@ def test_max_depth_stdin(run_cli):
 
 def test_max_depth_1_only_h1s(tmp_path, run_cli, write_md_file):
     """Test --max-depth 1 prints only h1 headings."""
-    write_md_file(
+    test_file = write_md_file(
         "only_h1.md", "# Title 1\n## Section\n### Subsection\n# Title 2\n## Another Section\n"
     )
 
-    result = run_cli(["--max-depth", "1", str(tmp_path / "only_h1.md")])
+    result = run_cli(["--max-depth", "1", str(test_file)])
 
     expected = "- Title 1\n- Title 2\n"
     assert result.returncode == 0
@@ -184,9 +184,9 @@ def test_max_depth_1_only_h1s(tmp_path, run_cli, write_md_file):
 
 def test_max_depth_larger_than_deepest(tmp_path, run_cli, write_md_file):
     """Test --max-depth larger than deepest heading prints everything."""
-    write_md_file("shallow.md", "# H1\n## H2\n")
+    test_file = write_md_file("shallow.md", "# H1\n## H2\n")
 
-    result = run_cli(["--max-depth", "6", str(tmp_path / "shallow.md")])
+    result = run_cli(["--max-depth", "6", str(test_file)])
 
     expected = "- H1\n  - H2\n"
     assert result.returncode == 0
@@ -196,7 +196,7 @@ def test_max_depth_larger_than_deepest(tmp_path, run_cli, write_md_file):
 
 def test_max_depth_preserves_indentation(tmp_path, run_cli, write_md_file):
     """Test that filtered headings keep their original indentation."""
-    write_md_file(
+    test_file = write_md_file(
         "indent.md",
         "# H1\n"
         "## H2\n"
@@ -205,7 +205,7 @@ def test_max_depth_preserves_indentation(tmp_path, run_cli, write_md_file):
         "### H3-2 (keeps 4-space indent)\n",
     )
 
-    result = run_cli(["--max-depth", "3", str(tmp_path / "indent.md")])
+    result = run_cli(["--max-depth", "3", str(test_file)])
 
     # H3 headings keep their 4-space indent (2 * (3-1) = 4 spaces)
     expected = (
@@ -218,9 +218,9 @@ def test_max_depth_preserves_indentation(tmp_path, run_cli, write_md_file):
 
 def test_max_depth_0_empty_outline(tmp_path, run_cli, write_md_file):
     """Test --max-depth 0 produces empty outline with exit code 0."""
-    write_md_file("headings.md", "# H1\n## H2\n### H3\n")
+    test_file = write_md_file("headings.md", "# H1\n## H2\n### H3\n")
 
-    result = run_cli(["--max-depth", "0", str(tmp_path / "headings.md")])
+    result = run_cli(["--max-depth", "0", str(test_file)])
 
     assert result.returncode == 0
     assert result.stdout == ""
@@ -251,9 +251,11 @@ def test_max_depth_invalid_int_error(run_cli):
 
 def test_max_depth_default_no_filtering(tmp_path, run_cli, write_md_file):
     """Test that without --max-depth, output matches previous behavior (no filtering)."""
-    write_md_file("default.md", "# Title\n## Section 1\n### Subsection 1.1\n## Section 2\n")
+    test_file = write_md_file(
+        "default.md", "# Title\n## Section 1\n### Subsection 1.1\n## Section 2\n"
+    )
 
-    result = run_cli([str(tmp_path / "default.md")])
+    result = run_cli([str(test_file)])
 
     expected = "- Title\n  - Section 1\n    - Subsection 1.1\n  - Section 2\n"
     assert result.returncode == 0
@@ -263,9 +265,9 @@ def test_max_depth_default_no_filtering(tmp_path, run_cli, write_md_file):
 
 def test_max_depth_equals_arg(tmp_path, run_cli, write_md_file):
     """Test --max-depth=N syntax works correctly."""
-    write_md_file("equals.md", "# H1\n## H2\n### H3\n#### H4\n")
+    test_file = write_md_file("equals.md", "# H1\n## H2\n### H3\n#### H4\n")
 
-    result = run_cli(["--max-depth=2", str(tmp_path / "equals.md")])
+    result = run_cli(["--max-depth=2", str(test_file)])
 
     expected = "- H1\n  - H2\n"
     assert result.returncode == 0

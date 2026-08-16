@@ -43,20 +43,31 @@ def resolve_mdoutline_cmd() -> list[str] | None:
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+def _require_cmd_and_env() -> tuple[list[str], dict[str, str]]:
+    """Resolve mdoutline command and build environment with PYTHONPATH.
+
+    Returns:
+        Tuple of (cmd_list, env_dict). Raises RuntimeError if command not found.
+    """
+    cmd = resolve_mdoutline_cmd()
+    if cmd is None:
+        raise RuntimeError("mdoutline command not found - set MDOUTLINE_BIN or install the package")
+
+    env = os.environ.copy()
+    pythonpath = str(REPO_ROOT)
+    if existing := os.environ.get("PYTHONPATH"):
+        pythonpath += os.pathsep + existing
+    env["PYTHONPATH"] = pythonpath
+
+    return cmd, env
+
+
 @pytest.fixture
 def run_cli():
     """Fixture returning a callable to run mdoutline CLI subprocess."""
 
     def runner(args, *, stdin=None, cwd=None, timeout=TIMEOUT_S) -> subprocess.CompletedProcess:
-        cmd = resolve_mdoutline_cmd()
-        if cmd is None:
-            raise RuntimeError("mdoutline command not found - skip test with appropriate reason")
-
-        env = os.environ.copy()
-        pythonpath = str(REPO_ROOT)
-        if existing := os.environ.get("PYTHONPATH"):
-            pythonpath += os.pathsep + existing
-        env["PYTHONPATH"] = pythonpath
+        cmd, env = _require_cmd_and_env()
 
         # Binary mode when stdin is bytes, text mode otherwise
         text_mode = not isinstance(stdin, bytes)
@@ -81,15 +92,7 @@ def run_cli_pipeline():
     def runner(
         command_suffix: str, *, stdin: str, cwd=None, timeout=TIMEOUT_S
     ) -> subprocess.CompletedProcess:
-        cmd = resolve_mdoutline_cmd()
-        if cmd is None:
-            raise RuntimeError("mdoutline command not found - skip test with appropriate reason")
-
-        env = os.environ.copy()
-        pythonpath = str(REPO_ROOT)
-        if existing := os.environ.get("PYTHONPATH"):
-            pythonpath += os.pathsep + existing
-        env["PYTHONPATH"] = pythonpath
+        cmd, env = _require_cmd_and_env()
 
         full_command = shlex.join(cmd) + " " + command_suffix
 
