@@ -553,3 +553,150 @@ def test_filter_by_depth_all_shallow_or_equal():
     headings = [(1, "H1"), (1, "Another H1"), (2, "H2")]
     result = mdoutline.filter_by_depth(headings, 2)
     assert result == [(1, "H1"), (1, "Another H1"), (2, "H2")]
+
+
+def test_number_headings_canonical_vector():
+    """Canonical test vector: h1 A, h2 B, h2 C, h3 D, h2 E, h1 F."""
+    headings = [(1, "A"), (2, "B"), (2, "C"), (3, "D"), (2, "E"), (1, "F")]
+    result = mdoutline.number_headings(headings)
+    expected = [
+        (1, "A", "1."),
+        (2, "B", "1.1"),
+        (2, "C", "1.2"),
+        (3, "D", "1.2.1"),
+        (2, "E", "1.3"),
+        (1, "F", "2."),
+    ]
+    assert result == expected
+
+
+def test_number_headings_depth_increments_and_resets_deeper():
+    """Depth d increments counter[d] and resets all deeper counters to 0."""
+    headings = [(1, "A"), (2, "B"), (3, "C"), (2, "D"), (3, "E")]
+    result = mdoutline.number_headings(headings)
+    expected = [
+        (1, "A", "1."),
+        (2, "B", "1.1"),
+        (3, "C", "1.1.1"),
+        (2, "D", "1.2"),
+        (3, "E", "1.2.1"),
+    ]
+    assert result == expected
+
+
+def test_number_headings_level_jump_h1_to_h3():
+    """Level jump from h1 to h3 produces mechanical 0 for skipped level."""
+    headings = [(1, "A"), (3, "B")]
+    result = mdoutline.number_headings(headings)
+    expected = [(1, "A", "1."), (3, "B", "1.0.1")]
+    assert result == expected
+
+
+def test_number_headings_h3_then_h2_continues_h2_counter():
+    """An h3 followed by h2 continues the h2 counter from before."""
+    headings = [(1, "A"), (2, "B"), (3, "C"), (2, "D")]
+    result = mdoutline.number_headings(headings)
+    expected = [(1, "A", "1."), (2, "B", "1.1"), (3, "C", "1.1.1"), (2, "D", "1.2")]
+    assert result == expected
+
+
+def test_number_headings_h2_to_h4_produces_mechanical_zeros():
+    """Jump from h2 to h4 produces mechanical zeros for skipped levels."""
+    headings = [(1, "A"), (2, "B"), (4, "C")]
+    result = mdoutline.number_headings(headings)
+    expected = [(1, "A", "1."), (2, "B", "1.1"), (4, "C", "1.1.0.1")]
+    assert result == expected
+
+
+def test_number_headings_depth_1_trailing_dot():
+    """Depth 1 headings have trailing dot in their number."""
+    headings = [(1, "A"), (1, "B"), (1, "C")]
+    result = mdoutline.number_headings(headings)
+    assert result == [(1, "A", "1."), (1, "B", "2."), (1, "C", "3.")]
+
+
+def test_number_headings_depth_2_no_trailing_dot():
+    """Depth 2 and deeper headings have no trailing dot."""
+    headings = [(1, "A"), (2, "B"), (3, "C")]
+    result = mdoutline.number_headings(headings)
+    assert result[1][2] == "1.1"  # No trailing dot
+    assert result[2][2] == "1.1.1"  # No trailing dot
+
+
+def test_number_headings_empty_input_returns_empty():
+    """Empty input returns empty list."""
+    result = mdoutline.number_headings([])
+    assert result == []
+
+
+def test_number_headings_single_h1():
+    """Single h1 heading produces ['1.']."""
+    headings = [(1, "Title")]
+    result = mdoutline.number_headings(headings)
+    assert result == [(1, "Title", "1.")]
+
+
+def test_number_headings_does_not_mutate_input():
+    """number_headings does not mutate the input list."""
+    headings = [(1, "A"), (2, "B"), (3, "C")]
+    original = list(headings)  # Shallow copy is fine for tuples
+    mdoutline.number_headings(headings)
+    assert headings == original
+
+
+def test_number_headings_returns_new_list():
+    """number_headings returns a new list, not the input."""
+    headings = [(1, "A"), (2, "B")]
+    result = mdoutline.number_headings(headings)
+    assert result is not headings
+
+
+def test_number_headings_multiple_h1s_increment():
+    """Multiple h1 headings each increment the top-level counter."""
+    headings = [(1, "A"), (1, "B"), (1, "C"), (1, "D")]
+    result = mdoutline.number_headings(headings)
+    expected = [(1, "A", "1."), (1, "B", "2."), (1, "C", "3."), (1, "D", "4.")]
+    assert result == expected
+
+
+def test_number_headings_deep_nesting():
+    """Deep nesting (up to depth 6) works correctly."""
+    headings = [(1, "A"), (2, "B"), (3, "C"), (4, "D"), (5, "E"), (6, "F")]
+    result = mdoutline.number_headings(headings)
+    expected = [
+        (1, "A", "1."),
+        (2, "B", "1.1"),
+        (3, "C", "1.1.1"),
+        (4, "D", "1.1.1.1"),
+        (5, "E", "1.1.1.1.1"),
+        (6, "F", "1.1.1.1.1.1"),
+    ]
+    assert result == expected
+
+
+def test_number_headings_complex_structure():
+    """Complex heading structure with multiple level changes."""
+    headings = [
+        (1, "One"),
+        (2, "One.One"),
+        (3, "One.One.One"),
+        (3, "One.One.Two"),
+        (2, "One.Two"),
+        (3, "One.Two.One"),
+        (1, "Two"),
+        (2, "Two.One"),
+        (2, "Two.Two"),
+    ]
+    result = mdoutline.number_headings(headings)
+    expected = [
+        (1, "One", "1."),
+        (2, "One.One", "1.1"),
+        (3, "One.One.One", "1.1.1"),
+        (3, "One.One.Two", "1.1.2"),
+        (2, "One.Two", "1.2"),
+        (3, "One.Two.One", "1.2.1"),
+        (1, "Two", "2."),
+        (2, "Two.One", "2.1"),
+        (2, "Two.Two", "2.2"),
+    ]
+    assert result == expected

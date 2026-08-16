@@ -135,6 +135,55 @@ def filter_by_depth(
     return [(depth, text) for depth, text in headings if depth <= max_depth]
 
 
+def number_headings(headings: list[tuple[int, str]]) -> list[tuple[int, str, str]]:
+    """Number headings according to hierarchical outline numbering.
+
+    Args:
+        headings: A list of (depth, text) tuples from extract_headings().
+
+    Returns:
+        A new list of (depth, text, number) tuples. The number is the
+        hierarchical section number for each heading. Rules:
+        - A heading at depth d increments counter[d] and resets ALL deeper
+          counters to 0.
+        - The number for a heading at depth d joins counter[1..d] with dots.
+        - Format: depth 1 gets a trailing dot ("1.", "2."); depth >= 2 gets
+          none ("1.1", "1.2.1").
+        - Skipped intermediate levels render a mechanical 0: e.g., h1 followed
+          directly by h3 -> "1.0.1".
+        - Empty input returns an empty list.
+        - The input list is never mutated.
+
+    Example:
+        >>> number_headings([(1, "A"), (2, "B"), (2, "C"), (3, "D"), (2, "E"), (1, "F")])
+        [(1, 'A', '1.'), (2, 'B', '1.1'), (2, 'C', '1.2'), (3, 'D', '1.2.1'), (2, 'E', '1.3'), (1, 'F', '2.')]
+    """
+    # Initialize counters for depths 1-6 (using 1-based indexing for convenience)
+    counter = [0] * 7  # index 0 unused, depths 1-6 map to indices 1-6
+
+    result: list[tuple[int, str, str]] = []
+
+    for depth, text in headings:
+        # Increment counter at current depth
+        counter[depth] += 1
+
+        # Reset all deeper counters to 0
+        for d in range(depth + 1, len(counter)):
+            counter[d] = 0
+
+        # Build number string from counter[1..depth]
+        number_parts = [str(counter[d]) for d in range(1, depth + 1)]
+        number = ".".join(number_parts)
+
+        # Add trailing dot for depth 1
+        if depth == 1:
+            number += "."
+
+        result.append((depth, text, number))
+
+    return result
+
+
 def render_outline(headings: list[tuple[int, str]]) -> str:
     """Render a list of headings as an outline string.
 
