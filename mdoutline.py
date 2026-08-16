@@ -128,6 +128,9 @@ def render_outline(headings: list[tuple[int, str]]) -> str:
     lines: list[str] = []
     for depth, text in headings:
         indent = "  " * (depth - 1)
-        lines.append(f"{indent}- {text}")
+        if text:
+            lines.append(f"{indent}- {text}")
+        else:
+            lines.append(f"{indent}-")
 
     return "\n".join(lines) + "\n"

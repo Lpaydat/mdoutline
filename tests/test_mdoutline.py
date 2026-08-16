@@ -311,6 +311,20 @@ def test_render_ends_with_single_newline():
     assert not result.endswith("\n\n")
 
 
+def test_render_empty_text_no_trailing_space():
+    """Heading with empty text renders as dash only (no trailing space)."""
+    headings = [(1, "")]
+    result = mdoutline.render_outline(headings)
+    assert result == "-\n"
+
+
+def test_render_mixed_empty_and_nonempty_text():
+    """Mixed empty and non-empty heading texts render correctly."""
+    headings = [(1, ""), (2, "x")]
+    result = mdoutline.render_outline(headings)
+    assert result == "-\n  - x\n"
+
+
 def test_different_fence_chars_do_not_close():
     """Different fence characters do not close a fence."""
     lines = [
