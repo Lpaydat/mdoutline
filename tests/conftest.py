@@ -27,8 +27,8 @@ def resolve_mdoutline_cmd() -> list[str] | None:
     3. sysconfig.get_path("scripts") / "mdoutline"
     4. None
     """
-    if mdoutline_bin := os.environ.get("MDOUTLINE_BIN"):
-        return shlex.split(mdoutline_bin)
+    if cmd := shlex.split(os.environ.get("MDOUTLINE_BIN", "")):
+        return cmd
 
     if found := shutil.which("mdoutline"):
         return [found]
