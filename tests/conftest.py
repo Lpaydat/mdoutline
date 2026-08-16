@@ -1,8 +1,9 @@
 """Shared CLI invocation seam for test suite.
 
 Provides centralized mdoutline binary resolution and subprocess runner.
-Resolves venv scripts dir correctly without deriving from sys.executable
-(which would follow symlinks to the base interpreter).
+The scripts dir comes from sysconfig under the ACTIVE interpreter - never
+derived from the interpreter executable's own path, which would follow
+symlinks out of the venv to the base interpreter's install dir.
 """
 
 import os
