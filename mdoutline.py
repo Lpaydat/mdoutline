@@ -1,0 +1,133 @@
+"""Markdown outline extractor.
+
+Extracts ATX-style headings from Markdown content and renders them as an outline.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+
+
+def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
+    """Extract ATX headings from Markdown lines.
+
+    Args:
+        lines: An iterable of strings representing Markdown content.
+
+    Returns:
+        A list of (depth, text) tuples where depth is 1-6 and text is the
+        heading content without the # markers.
+    """
+    headings: list[tuple[int, str]] = []
+    in_fence = False
+    fence_char = ""
+
+    for line in lines:
+        # Check if we're entering or exiting a fence
+        stripped = line.lstrip(" ")
+        leading_spaces = len(line) - len(stripped)
+
+        if not in_fence and leading_spaces <= 3:
+            # Check if this line opens a fence (up to 3 leading spaces)
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                # Count the fence characters
+                fence_candidate = stripped[0]
+                count = 0
+                for ch in stripped:
+                    if ch == fence_candidate:
+                        count += 1
+                    else:
+                        break
+                if count >= 3:
+                    in_fence = True
+                    fence_char = fence_candidate
+                    continue
+        else:
+            # Check if this line closes the current fence
+            if leading_spaces <= 3 and (
+                (fence_char == "`" and stripped.startswith("```"))
+                or (fence_char == "~" and stripped.startswith("~~~"))
+            ):
+                # Verify it's the same fence character
+                closing_char = stripped[0]
+                count = 0
+                for ch in stripped:
+                    if ch == closing_char:
+                        count += 1
+                    else:
+                        break
+                if count >= 3 and closing_char == fence_char:
+                    in_fence = False
+                    fence_char = ""
+                    continue
+            # Inside fence - skip heading detection
+            continue
+
+        # Not in a fence - check for heading
+        # At most 3 leading spaces
+        if leading_spaces > 3:
+            continue
+
+        # Count consecutive # characters at start
+        hash_count = 0
+        for ch in stripped:
+            if ch == "#":
+                hash_count += 1
+            else:
+                break
+
+        # Must have 1-6 hashes, followed by space or end of line
+        if hash_count < 1 or hash_count > 6:
+            continue
+
+        # Check what comes after the hashes
+        if len(stripped) > hash_count:
+            # Must have a space after the hashes
+            if stripped[hash_count] != " ":
+                continue
+            # Text starts after the space
+            text = stripped[hash_count + 1 :]
+        else:
+            # Just hashes - empty text
+            text = ""
+
+        # Strip trailing closing hashes with any preceding whitespace
+        # Example: "## Title ##" -> "Title"
+        text = text.rstrip()
+        if text:
+            # Find and remove trailing hashes with whitespace before them
+            i = len(text) - 1
+            while i >= 0 and text[i] == "#":
+                i -= 1
+            # i is now at the last non-# character (or -1 if all #)
+            # Also strip any whitespace before the trailing hashes
+            while i >= 0 and text[i].isspace():
+                i -= 1
+            text = text[: i + 1] if i >= 0 else ""
+
+        text = text.strip()
+
+        headings.append((hash_count, text))
+
+    return headings
+
+
+def render_outline(headings: list[tuple[int, str]]) -> str:
+    """Render a list of headings as an outline string.
+
+    Args:
+        headings: A list of (depth, text) tuples from extract_headings().
+
+    Returns:
+        A string with one line per heading, indented by 2 spaces per depth
+        level below h1. Empty string for empty input.
+    """
+    if not headings:
+        return ""
+
+    lines: list[str] = []
+    for depth, text in headings:
+        indent = "  " * (depth - 1)
+        lines.append(f"{indent}- {text}")
+
+    return "\n".join(lines) + "\n"
