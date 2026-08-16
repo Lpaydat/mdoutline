@@ -58,8 +58,44 @@ def run_cli():
             pythonpath += os.pathsep + existing
         env["PYTHONPATH"] = pythonpath
 
+        # Binary mode when stdin is bytes, text mode otherwise
+        text_mode = not isinstance(stdin, bytes)
+
         return subprocess.run(
             cmd + list(args),
+            input=stdin,
+            text=text_mode,
+            capture_output=True,
+            timeout=timeout,
+            cwd=cwd,
+            env=env,
+        )
+
+    return runner
+
+
+@pytest.fixture
+def run_cli_pipeline():
+    """Fixture returning a callable to run mdoutline in a shell pipeline."""
+
+    def runner(
+        command_suffix: str, *, stdin: str, cwd=None, timeout=TIMEOUT_S
+    ) -> subprocess.CompletedProcess:
+        cmd = resolve_mdoutline_cmd()
+        if cmd is None:
+            raise RuntimeError("mdoutline command not found - skip test with appropriate reason")
+
+        env = os.environ.copy()
+        pythonpath = str(REPO_ROOT)
+        if existing := os.environ.get("PYTHONPATH"):
+            pythonpath += os.pathsep + existing
+        env["PYTHONPATH"] = pythonpath
+
+        full_command = shlex.join(cmd) + " " + command_suffix
+
+        return subprocess.run(
+            full_command,
+            shell=True,
             input=stdin,
             text=True,
             capture_output=True,
