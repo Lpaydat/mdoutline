@@ -6,6 +6,7 @@ Extracts ATX-style headings from Markdown content and renders them as an outline
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Iterable
 
@@ -151,23 +152,42 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("file", nargs="?", help="Markdown file to process (default: stdin)")
     args = parser.parse_args(argv)
 
+    # Determine source name for error messages
+    source_name = args.file if args.file is not None else "<stdin>"
+
     try:
-        if args.file:
-            with open(args.file, encoding="utf-8") as f:
+        if args.file is not None:
+            with open(args.file, encoding="utf-8-sig") as f:
                 content = f.read()
         else:
-            content = sys.stdin.read()
+            if sys.stdin is None:
+                print("mdoutline: cannot read <stdin>: file descriptor is closed", file=sys.stderr)
+                return 1
+            # Read bytes and decode with utf-8-sig to handle BOM
+            content_bytes = sys.stdin.buffer.read()
+            content = content_bytes.decode("utf-8-sig")
     except OSError as e:
-        print(f"mdoutline: cannot read '{args.file}': {e.strerror}", file=sys.stderr)
+        print(f"mdoutline: cannot read '{source_name}': {e.strerror}", file=sys.stderr)
         return 1
     except UnicodeDecodeError as e:
-        print(f"mdoutline: cannot read '{args.file}': {e.reason}", file=sys.stderr)
+        print(f"mdoutline: cannot read '{source_name}': {e.reason}", file=sys.stderr)
         return 1
 
     lines = content.splitlines()
     headings = extract_headings(lines)
     outline = render_outline(headings)
-    sys.stdout.write(outline)
+
+    # Handle broken pipe quietly (like coreutils tools)
+    try:
+        sys.stdout.write(outline)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # Redirect stdout to /dev/null to suppress "Exception ignored" message
+        with open(os.devnull, "wb") as devnull:
+            os.dup2(devnull.fileno(), sys.stdout.fileno())
+        # Exit with SIGPIPE-like exit code (13 on Linux)
+        os._exit(13)
+
     return 0
 
 
