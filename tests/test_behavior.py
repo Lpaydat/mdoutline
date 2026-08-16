@@ -1,7 +1,7 @@
 """Behavior tests for mdoutline ticket-01 (integration verification).
 
 Every test asserts user-visible behavior derived from the ticket-01 spec:
-CLI subprocess probes (stdout/stderr/exit code) plus library calls through
+end-to-end CLI probes (stdout/stderr/exit code) plus library calls through
 the public module interface. No implementation details are tested.
 
 Known, bead-tracked divergences from CommonMark are deliberately NOT asserted
