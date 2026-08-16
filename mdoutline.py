@@ -168,8 +168,36 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         0 on success, 1 on error.
     """
+
+    def _non_negative_int(value: str) -> int:
+        """Validate that value is a non-negative integer.
+
+        Args:
+            value: String to parse as integer.
+
+        Returns:
+            The parsed integer.
+
+        Raises:
+            argparse.ArgumentTypeError: If value is not a valid non-negative integer.
+        """
+        try:
+            ivalue = int(value)
+        except ValueError as e:
+            raise argparse.ArgumentTypeError(f"invalid int value: '{value}'") from e
+        if ivalue < 0:
+            raise argparse.ArgumentTypeError(f"must be >= 0, got {ivalue}")
+        return ivalue
+
     parser = argparse.ArgumentParser(description="Extract and print a Markdown outline.")
     parser.add_argument("file", nargs="?", help="Markdown file to process (default: stdin)")
+    parser.add_argument(
+        "--max-depth",
+        type=_non_negative_int,
+        default=None,
+        metavar="N",
+        help="maximum heading depth to include (1-6, default: all depths)",
+    )
     args = parser.parse_args(argv)
 
     # Determine source name for error messages
@@ -195,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
 
     lines = content.splitlines()
     headings = extract_headings(lines)
+    headings = filter_by_depth(headings, args.max_depth)
     outline = render_outline(headings)
 
     # Handle broken pipe quietly (like coreutils tools)

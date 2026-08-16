@@ -179,3 +179,136 @@ def test_invalid_utf8_stdin():
     assert "None" not in stderr
     assert "Traceback" not in stderr
     assert stderr != ""
+
+
+def test_max_depth_file(tmp_path):
+    """Test --max-depth limits heading depth in file mode."""
+    test_file = tmp_path / "depth.md"
+    test_file.write_text("# H1\n## H2-1\n### H3-1\n#### H4-1\n## H2-2\n### H3-2\n")
+
+    result = _run_mdoutline(["--max-depth", "2", str(test_file)])
+
+    expected = "- H1\n  - H2-1\n  - H2-2\n"
+    assert result.returncode == 0
+    assert result.stdout.decode() == expected
+    assert result.stderr.decode() == ""
+
+
+def test_max_depth_stdin():
+    """Test --max-depth limits heading depth in stdin mode."""
+    content = "# H1\n## H2-1\n### H3-1\n#### H4-1\n## H2-2\n### H3-2\n"
+
+    result = _run_mdoutline(["--max-depth", "2"], input_data=content.encode())
+
+    expected = "- H1\n  - H2-1\n  - H2-2\n"
+    assert result.returncode == 0
+    assert result.stdout.decode() == expected
+    assert result.stderr.decode() == ""
+
+
+def test_max_depth_1_only_h1s(tmp_path):
+    """Test --max-depth 1 prints only h1 headings."""
+    test_file = tmp_path / "only_h1.md"
+    test_file.write_text("# Title 1\n## Section\n### Subsection\n# Title 2\n## Another Section\n")
+
+    result = _run_mdoutline(["--max-depth", "1", str(test_file)])
+
+    expected = "- Title 1\n- Title 2\n"
+    assert result.returncode == 0
+    assert result.stdout.decode() == expected
+    assert result.stderr.decode() == ""
+
+
+def test_max_depth_larger_than_deepest(tmp_path):
+    """Test --max-depth larger than deepest heading prints everything."""
+    test_file = tmp_path / "shallow.md"
+    test_file.write_text("# H1\n## H2\n")
+
+    result = _run_mdoutline(["--max-depth", "6", str(test_file)])
+
+    expected = "- H1\n  - H2\n"
+    assert result.returncode == 0
+    assert result.stdout.decode() == expected
+    assert result.stderr.decode() == ""
+
+
+def test_max_depth_preserves_indentation(tmp_path):
+    """Test that filtered headings keep their original indentation."""
+    test_file = tmp_path / "indent.md"
+    test_file.write_text(
+        "# H1\n"
+        "## H2\n"
+        "### H3-1 (keeps 4-space indent)\n"
+        "#### H4 (filtered)\n"
+        "### H3-2 (keeps 4-space indent)\n"
+    )
+
+    result = _run_mdoutline(["--max-depth", "3", str(test_file)])
+
+    # H3 headings keep their 4-space indent (2 * (3-1) = 4 spaces)
+    expected = (
+        "- H1\n  - H2\n    - H3-1 (keeps 4-space indent)\n    - H3-2 (keeps 4-space indent)\n"
+    )
+    assert result.returncode == 0
+    assert result.stdout.decode() == expected
+    assert result.stderr.decode() == ""
+
+
+def test_max_depth_0_empty_outline(tmp_path):
+    """Test --max-depth 0 produces empty outline with exit code 0."""
+    test_file = tmp_path / "headings.md"
+    test_file.write_text("# H1\n## H2\n### H3\n")
+
+    result = _run_mdoutline(["--max-depth", "0", str(test_file)])
+
+    assert result.returncode == 0
+    assert result.stdout.decode() == ""
+    assert result.stderr.decode() == ""
+
+
+def test_max_depth_negative_error(tmp_path):
+    """Test --max-depth with negative value produces argparse error (exit code 2)."""
+    result = _run_mdoutline(["--max-depth", "-1"])
+
+    assert result.returncode == 2
+    stderr = result.stderr.decode()
+    assert "must be >= 0" in stderr
+    assert "-1" in stderr
+    assert "Traceback" not in stderr
+
+
+def test_max_depth_invalid_int_error():
+    """Test --max-depth with non-integer value produces argparse error (exit code 2)."""
+    result = _run_mdoutline(["--max-depth", "abc"])
+
+    assert result.returncode == 2
+    stderr = result.stderr.decode()
+    assert "invalid int value" in stderr.lower()
+    assert "abc" in stderr
+    assert "Traceback" not in stderr
+
+
+def test_max_depth_default_no_filtering(tmp_path):
+    """Test that without --max-depth, output matches previous behavior (no filtering)."""
+    test_file = tmp_path / "default.md"
+    test_file.write_text("# Title\n## Section 1\n### Subsection 1.1\n## Section 2\n")
+
+    result = _run_mdoutline([str(test_file)])
+
+    expected = "- Title\n  - Section 1\n    - Subsection 1.1\n  - Section 2\n"
+    assert result.returncode == 0
+    assert result.stdout.decode() == expected
+    assert result.stderr.decode() == ""
+
+
+def test_max_depth_equals_arg(tmp_path):
+    """Test --max-depth=N syntax works correctly."""
+    test_file = tmp_path / "equals.md"
+    test_file.write_text("# H1\n## H2\n### H3\n#### H4\n")
+
+    result = _run_mdoutline(["--max-depth=2", str(test_file)])
+
+    expected = "- H1\n  - H2\n"
+    assert result.returncode == 0
+    assert result.stdout.decode() == expected
+    assert result.stderr.decode() == ""
