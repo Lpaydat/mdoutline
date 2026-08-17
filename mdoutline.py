@@ -101,19 +101,24 @@ def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
             # Just hashes - empty text
             text = ""
 
-        # Strip trailing closing hashes with any preceding whitespace
-        # Example: "## Title ##" -> "Title"
+        # Strip trailing closing hashes per CommonMark:
+        # Only strip a trailing '#' run when it is a CommonMark closing sequence:
+        # the run must be preceded by a space/tab, or the run is the ENTIRE text
+        # (it followed the opener's separating space).
         text = text.rstrip()
         if text:
-            # Find and remove trailing hashes with whitespace before them
-            i = len(text) - 1
-            while i >= 0 and text[i] == "#":
-                i -= 1
-            # i is now at the last non-# character (or -1 if all #)
-            # Also strip any whitespace before the trailing hashes
-            while i >= 0 and text[i].isspace():
-                i -= 1
-            text = text[: i + 1] if i >= 0 else ""
+            # Walk j left over trailing #s
+            j = len(text) - 1
+            while j >= 0 and text[j] == "#":
+                j -= 1
+            # Strip only if:
+            # - j < len(text) - 1 (there was at least one trailing #)
+            # - AND (j == -1 (all #s, empty after opener space) OR text[j] in ' \t')
+            if j < len(text) - 1 and (j == -1 or text[j] in " \t"):
+                # Also walk left over whitespace before the run
+                while j >= 0 and text[j] in " \t":
+                    j -= 1
+                text = text[: j + 1] if j >= 0 else ""
 
         text = text.strip()
 
