@@ -2,41 +2,33 @@
 
 import os
 
-import pytest
-
 from conftest import resolve_mdoutline_cmd
 
 
 def test_whitespace_bin_resolves_like_unset(monkeypatch):
-    """Whitespace-only MDOUTLINE_BIN values resolve to None like unset.
+    """Whitespace-only MDOUTLINE_BIN values resolve exactly like unset.
 
-    This test skips if the venv script is available via sysconfig,
-    since the sysconfig branch always finds .venv/bin/mdoutline.
+    The bead's claim is fall-through EQUIVALENCE: shlex-empty values must not
+    short-circuit into an empty command or a crash — they must produce the
+    same resolution an unset variable would, whatever the environment yields.
+    Asserted pairwise (value vs unset) so the test is meaningful both with a
+    script present (baseline = script path) and without one (baseline = None).
     """
-    # If we can find the script via sysconfig, skip (sysconfig branch wins)
-    import sysconfig
-    from pathlib import Path
-
-    scripts_dir = sysconfig.get_path("scripts")
-    if Path(scripts_dir).joinpath("mdoutline").exists():
-        pytest.skip(
-            f"Script exists at {Path(scripts_dir) / 'mdoutline'}, cannot test whitespace-only case"
-        )
-
-    # Temporarily remove venv bin from PATH so resolver won't find script
-    original_path = os.environ.get("PATH", "")
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
 
-    for value in [None, "", " ", "\t ", "\t"]:
+    def resolve(value):
         if value is None:
             monkeypatch.delenv("MDOUTLINE_BIN", raising=False)
         else:
             monkeypatch.setenv("MDOUTLINE_BIN", value)
-        result = resolve_mdoutline_cmd()
-        assert result is None, f"MDOUTLINE_BIN={value!r} should resolve to None, got {result}"
+        return resolve_mdoutline_cmd()
 
-    # Restore PATH
-    monkeypatch.setenv("PATH", original_path)
+    baseline = resolve(None)
+    for value in ["", " ", "\t ", "\t"]:
+        result = resolve(value)
+        assert result == baseline, (
+            f"MDOUTLINE_BIN={value!r} must resolve like unset ({baseline!r}), got {result!r}"
+        )
 
 
 def test_valid_path_resolves(monkeypatch, tmp_path):
