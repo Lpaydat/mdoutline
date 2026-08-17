@@ -299,6 +299,14 @@ def main(argv: list[str] | None = None) -> int:
         headings = number_headings(headings)
     outline = render_outline(headings)
 
+    # Check if stdout is available (closed fd check)
+    if sys.stdout is None:
+        print(
+            "mdoutline: cannot write to standard output: file descriptor is closed",
+            file=sys.stderr,
+        )
+        return 1
+
     # Handle broken pipe quietly (like coreutils tools)
     try:
         sys.stdout.write(outline)
@@ -309,6 +317,20 @@ def main(argv: list[str] | None = None) -> int:
             os.dup2(devnull.fileno(), sys.stdout.fileno())
         # Exit with SIGPIPE-like exit code (13 on Linux)
         os._exit(13)
+    except OSError as e:
+        print(
+            f"mdoutline: cannot write to standard output: {e.strerror or e}",
+            file=sys.stderr,
+        )
+        # Redirect stdout to /dev/null to suppress "Exception ignored" message
+        # Guard the dup2 to avoid errors if stdout.fileno() is invalid
+        if sys.stdout is not None:
+            try:
+                with open(os.devnull, "wb") as devnull:
+                    os.dup2(devnull.fileno(), sys.stdout.fileno())
+            except (OSError, AttributeError):
+                pass
+        return 1
 
     return 0
 
