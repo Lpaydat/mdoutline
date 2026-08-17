@@ -24,6 +24,7 @@ def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
     headings: list[tuple[int, str]] = []
     in_fence = False
     fence_char = ""
+    fence_count = 0  # Run length of the opening fence
 
     for line in lines:
         # Check if we're entering or exiting a fence
@@ -44,25 +45,31 @@ def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
                 if count >= 3:
                     in_fence = True
                     fence_char = fence_candidate
+                    fence_count = count  # Record opener run length
                     continue
         else:
-            # Check if this line closes the current fence
-            if leading_spaces <= 3 and (
-                (fence_char == "`" and stripped.startswith("```"))
-                or (fence_char == "~" and stripped.startswith("~~~"))
-            ):
-                # Verify it's the same fence character
-                closing_char = stripped[0]
-                count = 0
+            # Check if this line closes the current fence per CommonMark:
+            # - leading spaces <= 3
+            # - first non-space char matches fence_char
+            # - run length >= max(3, fence_count)
+            # - nothing after run except spaces
+            if leading_spaces <= 3 and stripped.startswith(fence_char):
+                # Count consecutive fence characters
+                closing_count = 0
                 for ch in stripped:
-                    if ch == closing_char:
-                        count += 1
+                    if ch == fence_char:
+                        closing_count += 1
                     else:
                         break
-                if count >= 3 and closing_char == fence_char:
-                    in_fence = False
-                    fence_char = ""
-                    continue
+                # Check if this is a valid closer
+                if closing_count >= max(3, fence_count):
+                    # Check that nothing after the run except spaces
+                    remaining = stripped[closing_count:]
+                    if not remaining or remaining.isspace():
+                        in_fence = False
+                        fence_char = ""
+                        fence_count = 0
+                        continue
             # Inside fence - skip heading detection
             continue
 
