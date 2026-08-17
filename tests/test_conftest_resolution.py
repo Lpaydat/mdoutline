@@ -20,7 +20,7 @@ def test_whitespace_bin_resolves_like_unset(monkeypatch):
     scripts_dir = sysconfig.get_path("scripts")
     if Path(scripts_dir).joinpath("mdoutline").exists():
         pytest.skip(
-            f"Script exists at {scripts_dir / 'mdoutline'}, cannot test whitespace-only case"
+            f"Script exists at {Path(scripts_dir) / 'mdoutline'}, cannot test whitespace-only case"
         )
 
     # Temporarily remove venv bin from PATH so resolver won't find script
