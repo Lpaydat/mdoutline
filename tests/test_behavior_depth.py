@@ -367,6 +367,9 @@ class TestDeploymentReadiness:
         assert "--max-depth" in r.stdout
 
     def test_python_m_matches_console_script(self, run_cli, write_md_file, monkeypatch):
+        cmd = resolve_mdoutline_cmd()
+        if cmd is None:
+            pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
         f = write_md_file("doc.md", DOC_ALL)
         script = run_cli(["--max-depth", "2", str(f)])
         monkeypatch.setenv("MDOUTLINE_BIN", f"{sys.executable} -m mdoutline")
@@ -375,6 +378,9 @@ class TestDeploymentReadiness:
         assert mod.stdout == script.stdout
 
     def test_broken_pipe_is_quiet_nonzero(self, tmp_path, run_cli_pipeline):
+        cmd = resolve_mdoutline_cmd()
+        if cmd is None:
+            pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
         # ~200KB outline piped into `head -n 1`: must exit 13 without a
         # traceback, exactly like the no-flag behavior (ticket-01 contract).
         big = tmp_path / "big.md"
@@ -382,11 +388,15 @@ class TestDeploymentReadiness:
         r = run_cli_pipeline(
             f"--max-depth 1 {shlex.quote(str(big))} | head -n 1 >/dev/null; exit ${{PIPESTATUS[0]}}",
             stdin="",
+            executable="/bin/bash",
         )
         assert r.returncode == 13, (r.returncode, r.stderr)
         assert "Traceback" not in r.stderr
 
     def test_large_input_filter_smoke(self, run_cli, write_md_file):
+        cmd = resolve_mdoutline_cmd()
+        if cmd is None:
+            pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
         lines = []
         for i in range(1500):
             lines.append(f"# T{i}")

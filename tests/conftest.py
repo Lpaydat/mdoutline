@@ -90,7 +90,12 @@ def run_cli_pipeline():
     """Fixture returning a callable to run mdoutline in a shell pipeline."""
 
     def runner(
-        command_suffix: str, *, stdin: str, cwd=None, timeout=TIMEOUT_S
+        command_suffix: str,
+        *,
+        stdin: str,
+        cwd=None,
+        timeout=TIMEOUT_S,
+        executable: str | None = None,
     ) -> subprocess.CompletedProcess:
         cmd, env = _require_cmd_and_env()
 
@@ -105,6 +110,7 @@ def run_cli_pipeline():
             timeout=timeout,
             cwd=cwd,
             env=env,
+            executable=executable,
         )
 
     return runner
