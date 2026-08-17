@@ -23,6 +23,3 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --tb=short"
-
-[tool.ruff]
-exclude = [".traces", ".driver", ".pi", ".beads"]

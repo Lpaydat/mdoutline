@@ -184,20 +184,11 @@ def test_r2_change_is_pure_deletion_byte_identical():
 # ------------------------------------------- R1/R2: what exactly was deleted
 
 
-def test_r1_head_pyproject_has_only_minimal_ruff_table():
-    """pyproject.toml has at most a minimal [tool.ruff] table (exclude only).
-
-    The old dead block (line-length, target-version, select, ignore) was
-    deleted by ticket-refactor-02. mdoutline-nbz added only the exclude list.
-    """
+def test_r1_head_pyproject_has_no_ruff_table():
     parsed = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     tool = parsed.get("tool", {})
-    if "ruff" in tool:
-        ruff_keys = set(tool["ruff"].keys())
-        assert ruff_keys == {"exclude"}, f"tool.ruff should only have 'exclude', got: {ruff_keys}"
-    assert not any(k.startswith("ruff") for k in tool if k != "ruff"), (
-        f"ruff-adjacent tool keys: {sorted(k for k in tool if k.startswith('ruff'))}"
-    )
+    assert "ruff" not in tool, f"tool.ruff survives TOML parse: {tool['ruff']!r}"
+    assert not any(k.startswith("ruff") for k in tool), f"ruff-adjacent tool keys: {sorted(tool)}"
 
 
 # ----------------------------- R3: deleted block was dead AND strict subset

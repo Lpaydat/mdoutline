@@ -138,22 +138,12 @@ FORMAT_PROBE = "x=1\ny = [ 1,2, 3 ]\n"
 # ---------------------------------------------------- S1: block is gone
 
 
-def test_pyproject_has_no_dead_ruff_block():
-    """S1: no DEAD [tool.ruff] configuration block remains in pyproject.toml.
-
-    The old [tool.ruff] block with line-length, target-version, select, ignore
-    was deleted by ticket-refactor-02. A minimal [tool.ruff] table with only
-    exclude entries (added by mdoutline-nbz) is acceptable.
-    """
-    parsed = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
-    ruff_config = parsed.get("tool", {}).get("ruff", {})
-    # If present, should only have 'exclude'
-    if ruff_config:
-        assert set(ruff_config.keys()) <= {"exclude"}, (
-            f"pyproject.toml [tool.ruff] has unexpected keys: {list(ruff_config.keys())}"
-        )
-        # Exclude should be a list of strings
-        assert isinstance(ruff_config.get("exclude"), list), "exclude should be a list"
+def test_pyproject_has_no_ruff_table():
+    """S1: no [tool.ruff] heading of any kind remains in pyproject.toml."""
+    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.ruff" not in text, "pyproject.toml still carries a [tool.ruff*] table"
+    parsed = tomllib.loads(text)
+    assert "ruff" not in parsed.get("tool", {}), "tool.ruff key survives TOML parse"
 
 
 def test_pyproject_valid_and_neighbour_tables_intact():
