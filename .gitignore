@@ -28,3 +28,8 @@ traces/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Agent workspace directories (shared checkout)
+.traces/
+.driver/
+.pi/
