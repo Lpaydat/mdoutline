@@ -343,7 +343,7 @@ class TestAttackProductionEntry:
         assert cp.returncode == 0
         assert cp.stdout == "- 1. A\n  - 1.1 B\n"
 
-    def test_console_script_equals_module_cli(self, run_cli, run_cli_module, write_md_file):
+    def test_console_script_equals_module_cli(self, run_cli, write_md_file, monkeypatch):
         """Byte-parity between production entry point and module invocation."""
         cmd = resolve_mdoutline_cmd()
         if cmd is None:
@@ -351,7 +351,8 @@ class TestAttackProductionEntry:
         doc = "# T\n## S1\n## S2\n### Deep\n## S3\n# U\n"
         p = write_md_file("doc.md", doc)
         cs = run_cli(["--numbers", str(p)])
-        mm = run_cli_module(["--numbers", str(p)])
+        monkeypatch.setenv("MDOUTLINE_BIN", f"{sys.executable} -m mdoutline")
+        mm = run_cli(["--numbers", str(p)])
         assert cs.returncode == mm.returncode == 0
         assert cs.stdout == mm.stdout
         assert cs.stderr == mm.stderr
