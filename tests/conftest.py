@@ -80,6 +80,31 @@ def _require_cmd_and_env() -> tuple[list[str], dict[str, str]]:
     """
     cmd = resolve_mdoutline_cmd()
     if cmd is None:
+        # Emit warning when resolver returns None
+        mdoutline_bin = os.environ.get("MDOUTLINE_BIN", "")
+        if mdoutline_bin:
+            # Try to parse to see if it's malformed or whitespace-only
+            try:
+                parsed = shlex.split(mdoutline_bin)
+                if not parsed:
+                    # Whitespace-only
+                    print(
+                        "mdoutline: warning: MDOUTLINE_BIN set but is empty/whitespace; falling back to python -m mdoutline (probes REPO SOURCE, not a deployed install)",
+                        file=sys.stderr,
+                    )
+                # If parsed, the setter override was explicitly invalid/unparseable
+            except ValueError as e:
+                # Malformed (e.g., unclosed quote)
+                print(
+                    f"mdoutline: warning: MDOUTLINE_BIN '{mdoutline_bin}' is unparseable ({e}); falling back to python -m mdoutline (probes REPO SOURCE, not a deployed install)",
+                    file=sys.stderr,
+                )
+        else:
+            # Not set
+            print(
+                "mdoutline: warning: mdoutline console script not installed; falling back to python -m mdoutline (probes REPO SOURCE, not a deployed install)",
+                file=sys.stderr,
+            )
         cmd = [sys.executable, "-m", "mdoutline"]
 
     env = os.environ.copy()
