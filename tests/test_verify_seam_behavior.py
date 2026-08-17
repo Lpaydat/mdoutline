@@ -18,7 +18,6 @@ import json
 import os
 import re
 import subprocess
-import pytest
 from pathlib import Path
 
 import pytest
@@ -459,13 +458,8 @@ def _stripped_env():
     return env
 
 
-@pytest.skip("Broken pipe test has environment flakiness")
 def test_deploy_venv_off_path_suites_green_no_skips():
-    """R2: venv stripped from PATH - script still found via sysconfig; nothing skips.
-
-    SKIPPED: test_broken_pipe_is_quiet_nonzero flaky (rc 0 vs 13) in
-    certain shell contexts.
-    """
+    """R2: venv stripped from PATH - script still found via sysconfig; nothing skips."""
     venv_python = REPO_ROOT / ".venv" / "bin" / "python"
     if not venv_python.exists() or _system_mdoutline_present():
         pytest.skip("canonical .venv interpreter not present or system mdoutline interferes")
