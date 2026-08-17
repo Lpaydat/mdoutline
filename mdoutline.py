@@ -306,7 +306,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mdoutline: cannot read '{source_name}': {e.reason}", file=sys.stderr)
         return 1
 
-    lines = content.splitlines()
+    # Split on newline only (LF), tolerating CRLF and lone CR.
+    # U+2028, U+0085, \x0c, \x1c-\x1e must NOT split lines.
+    lines = content.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     headings = extract_headings(lines)
     headings = filter_by_depth(headings, args.max_depth)
     if args.numbers:
