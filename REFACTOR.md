@@ -84,23 +84,22 @@ ticket them together or fold C2 into C1's ticket.
 
 ---
 
-## C3 — Dead [tool.ruff] block in pyproject.toml [Worth exploring]
+## C3 — Dead ruff config block in pyproject.toml (fixed by ticket-refactor-02) [Worth exploring]
 
-**Problem.** `pyproject.toml:27-33` carries `[tool.ruff]` + `[tool.ruff.lint]`
+**Problem.** `pyproject.toml` originally carried `ruff config` + ``
 (line-length=100, target-version=py311, select=[E,F,W,I,UP,B,SIM],
-ignore=[E501]). Ruff never reads it: `ruff.toml:1-9` is a strict superset
+ignore=[E501]). Ruff never read it: `ruff.toml:1-9` is a strict superset
 (identical values plus `[lint.isort] known-first-party=["mdoutline"]`) and
 ruff's documented discovery order resolves Settings path to `ruff.toml`.
-Verified empirically: mangling the pyproject block (line-length=10,
-select=["E"]) changed nothing — `ruff check .` stayed green, effective
-line_length stayed 100. Simulated deletion → full `make check` green
-(lint + format + 263/263 tests), repo restored byte-identical.
+Verified empirically: mangling the pyproject block changed nothing —
+`ruff check .` stayed green, effective line_length stayed 100. Simulated
+deletion → full `make check` green.
 
-**Solution.** Delete `pyproject.toml:27-33`. Pure deletion, zero behavior
-change, small payoff, zero risk. The reverse consolidation (move
-`[lint.isort]` into pyproject, delete ruff.toml) is equally valid; keeping
-ruff.toml is the safer minimal diff since it is the file actually in effect.
-Fine standalone as a trivial ticket or bundled with C1/C2.
+**Solution.** Delete the dead block. Pure deletion, zero behavior change,
+small payoff, zero risk. The reverse consolidation (move `[lint.isort]` into
+pyproject, delete ruff.toml) is equally valid; keeping ruff.toml is the safer
+minimal diff since it is the file actually in effect. Fine standalone as a
+trivial ticket or bundled with C1/C2.
 
 ---
 
