@@ -19,8 +19,6 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parent.parent
 TIMEOUT_S = 60
 
@@ -71,15 +69,14 @@ def normalize(text: str, tree: Path) -> str:
 
 
 def c3_commit_sha(git: str) -> str:
-    """The commit that changed the count of '[tool.ruff]' in pyproject.toml (= C3)."""
-    proc = run(
-        [git, "log", "-1", "--format=%H", "-S[tool.ruff]", "--", "pyproject.toml"],
-        cwd=REPO,
-    )
-    assert proc.returncode == 0, proc.stderr
-    sha = proc.stdout.strip()
-    assert sha, "no commit touching [tool.ruff] found in pyproject.toml history"
-    return sha
+    """The commit that deleted the dead [tool.ruff] block (= C3).
+
+    Pinned to the historical C3 sha rather than pickaxed at runtime:
+    subsequent commits legitimately re-add/remove [tool.ruff] content in
+    pyproject.toml (e.g. mdoutline-nbz), which would silently re-anchor a
+    ``-S[tool.ruff]`` pickaxe onto unrelated churn.
+    """
+    return "6a23435ea082df5c3e201a16aa7766512d1aba23"
 
 
 def build_tree(git: str, dest: Path, *, pyproject_blob: str | None = None) -> Path:
@@ -301,11 +298,7 @@ def test_format_behavior_identical_pre_vs_post_deletion(tmp_path):
 def test_mangled_ruff_block_in_pyproject_changes_nothing(tmp_path):
     """S3 deadness proof: re-adding a MANGLED [tool.ruff] block (line-length=10,
     select=["E"]) to pyproject.toml leaves effective settings byte-identical —
-    proving pyproject's ruff table is dead, not merely redundant.
-
-    SKIPPED: No [tool.ruff] block in pyproject.toml to mangle (moved to ruff.toml).
-    """
-    pytest.skip("No [tool.ruff] block in pyproject.toml to mangle (moved to ruff.toml)")
+    proving pyproject's ruff table is dead, not merely redundant."""
     git, ruff = find_git(), find_ruff()
     mangled = (
         parent_pyproject(git)

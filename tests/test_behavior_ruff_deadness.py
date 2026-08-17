@@ -115,14 +115,15 @@ def effective_line_length(dump: str) -> int:
 
 
 def c3_commit() -> str:
-    """The commit that changed the count of '[tool.ruff]' in pyproject.toml."""
-    proc = run(
-        ["git", "log", "-1", "--format=%H", "-S[tool.ruff]", "--", "pyproject.toml"], cwd=REPO
-    )
-    assert proc.returncode == 0, proc.stderr
-    sha = proc.stdout.strip()
-    assert sha, "no commit in pyproject.toml history touched [tool.ruff]"
-    return sha
+    """The commit that deleted the dead [tool.ruff] block from pyproject.toml.
+
+    Pinned to the historical C3 deletion sha (named in this suite's docstrings
+    and in the spec card) rather than pickaxed at runtime: subsequent commits
+    legitimately re-add/remove [tool.ruff] content in pyproject.toml (e.g.
+    mdoutline-nbz), which would silently re-anchor a ``-S[tool.ruff]`` pickaxe
+    onto unrelated churn and make these historical assertions unrunnable.
+    """
+    return "6a23435ea082df5c3e201a16aa7766512d1aba23"
 
 
 def git_blob(sha: str, path: str) -> str:
@@ -157,11 +158,6 @@ def deleted_line_numbers(sha: str, path: str) -> dict[int, str]:
 
 
 def test_r2_change_is_pure_deletion_byte_identical():
-    """R2 pure deletion verification.
-
-    SKIPPED: Now modifies ruff.toml too, not just pyproject.toml deletion.
-    """
-    pytest.skip("Now modifies ruff.toml too, not just pyproject.toml deletion")
     """Parent blob minus the removed LINES (anchored by hunk position) is
     byte-identical to the HEAD blob — nothing but the block was deleted."""
     sha = c3_commit()
@@ -202,11 +198,7 @@ def test_r1_head_pyproject_has_no_ruff_table():
 def test_r3_deleted_block_was_strict_subset_of_ruff_toml():
     """Spec claim checked from history: every value in the deleted block is
     present with the same value in ruff.toml at the deletion commit, which
-    additionally carries [lint.isort] (strict superset).
-
-    SKIPPED: C3 deleted pyproject block; ruff.toml now has exclude added.
-    """
-    pytest.skip("C3 deleted pyproject block; ruff.toml now has exclude added")
+    additionally carries [lint.isort] (strict superset)."""
     sha = c3_commit()
     parent_cfg = tomllib.loads(git_blob(f"{sha}^", "pyproject.toml"))["tool"]["ruff"]
     ruff_cfg = tomllib.loads(git_blob(sha, "ruff.toml"))
@@ -218,8 +210,15 @@ def test_r3_deleted_block_was_strict_subset_of_ruff_toml():
     assert ruff_cfg["lint"]["isort"]["known-first-party"] == ["mdoutline"], "superset key missing"
     assert "isort" not in parent_cfg["lint"], "deleted block was NOT a strict subset"
 
-    # and ruff.toml is untouched since: byte-identical to today's file
-    assert git_blob(sha, "ruff.toml") == (REPO / "ruff.toml").read_text(encoding="utf-8")
+    # and ruff.toml is untouched since, except the sanctioned mdoutline-nbz
+    # exclude addition: HEAD's file minus the exclude line is byte-identical
+    # to the blob at the C3 deletion commit.
+    head_body = (REPO / "ruff.toml").read_text(encoding="utf-8")
+    nbz_exclude = 'exclude = [".traces", ".driver", ".pi", ".beads"]\n\n'
+    assert nbz_exclude in head_body, "sanctioned nbz exclude line missing from ruff.toml"
+    assert head_body.replace(nbz_exclude, "") == git_blob(sha, "ruff.toml"), (
+        "ruff.toml drifted beyond the sanctioned nbz exclude addition"
+    )
 
 
 def test_r5_mangled_pyproject_block_is_dead_minimal_tree(tmp_path):
@@ -335,14 +334,10 @@ def test_r5_repo_lint_and_format_green():
 
 
 def test_r6_no_tracked_non_test_file_references_the_block():
-    """R6: no tracked non-test file references the deleted pyproject [tool.ruff] block.
-
-    The test suite files may reference it in prose/skip reasons.
-    """
-    proc = run(["git", "grep", "-l", "-F", "[tool.ruff]", "HEAD"], cwd=REPO)
+    proc = run(["git", "grep", "-l", "-F", "tool.ruff", "HEAD"], cwd=REPO)
     matches = [ln.split(":", 1)[1] for ln in proc.stdout.splitlines() if ln.strip()]
     offenders = [m for m in matches if not m.startswith("tests/")]
-    assert not offenders, f"tracked non-test files still reference [tool.ruff]: {offenders}"
+    assert not offenders, f"tracked non-test files still reference tool.ruff: {offenders}"
 
 
 # ------------------------------------- R7: deployment readiness
