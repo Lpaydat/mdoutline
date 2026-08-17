@@ -22,13 +22,12 @@ Without the flag, output must be byte-identical to the pre-change behavior.
 
 from __future__ import annotations
 
-import os
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from conftest import resolve_mdoutline_cmd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))  # library probes work without editable install
@@ -64,57 +63,22 @@ OUTLINE_UNICODE_NUMBERS = "- 1. 标题 一\n    - 1.0.1 🚀 Deep\n"
 OUTLINE_UNICODE_PLAIN = "- 标题 一\n    - 🚀 Deep\n"
 
 
-def _cli() -> list[str]:
-    # MDOUTLINE_BIN lets verification harnesses target a specific binary
-    # (e.g. a mutated clone); production behavior is unchanged.
-    override = os.environ.get("MDOUTLINE_BIN")
-    if override:
-        return override.split()
-    exe = shutil.which("mdoutline")
-    return [exe] if exe else [sys.executable, "-m", "mdoutline"]
-
-
-def run_cli(*args: str, stdin: str | bytes | None = None) -> subprocess.CompletedProcess[bytes]:
-    if isinstance(stdin, str):
-        stdin = stdin.encode()
-    return subprocess.run(
-        _cli() + list(args),
-        input=stdin,
-        capture_output=True,
-        cwd=REPO_ROOT,
-        timeout=120,
-    )
-
-
-@pytest.fixture()
-def doc_file(tmp_path: Path):
-    def _write(content: str | bytes, name: str = "doc.md") -> Path:
-        p = tmp_path / name
-        if isinstance(content, bytes):
-            p.write_bytes(content)
-        else:
-            p.write_text(content, encoding="utf-8")
-        return p
-
-    return _write
-
-
 # ===========================================================================
 # Phase 1 — core numbering behavior
 # ===========================================================================
 
 
 class TestCanonicalVector:
-    def test_numbers_on_file_exact_output(self, doc_file):
+    def test_numbers_on_file_exact_output(self, run_cli, write_md_file):
         """Canonical vector h1,h2,h2,h3,h2,h1 -> exact numbered lines."""
-        r = run_cli("--numbers", str(doc_file(DOC_CANONICAL)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", DOC_CANONICAL))])
         assert r.returncode == 0, r.stderr
-        assert r.stdout == OUTLINE_CANONICAL_NUMBERS.encode()
+        assert r.stdout == OUTLINE_CANONICAL_NUMBERS
 
-    def test_counter_reset_after_nested(self, doc_file):
+    def test_counter_reset_after_nested(self, run_cli, write_md_file):
         """After 1.2.1 the next h2 renders 1.3; the next h1 renders 2."""
-        r = run_cli("--numbers", str(doc_file(DOC_CANONICAL)))
-        lines = r.stdout.decode().splitlines()
+        r = run_cli(["--numbers", str(write_md_file("doc.md", DOC_CANONICAL))])
+        lines = r.stdout.splitlines()
         # Verify exact sequence
         assert lines[0] == "- 1. A"
         assert lines[1] == "  - 1.1 B"
@@ -125,74 +89,78 @@ class TestCanonicalVector:
 
 
 class TestEmptyTextHeadings:
-    def test_empty_text_renders_without_trailing_space(self, doc_file):
+    def test_empty_text_renders_without_trailing_space(self, run_cli, write_md_file):
         """Empty-text heading renders as '- 1.' with no trailing space."""
-        r = run_cli("--numbers", str(doc_file(DOC_EMPTY_TEXT)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", DOC_EMPTY_TEXT))])
         assert r.returncode == 0
-        lines = r.stdout.decode().splitlines()
+        lines = r.stdout.splitlines()
         assert lines[1] == "  - 1.1"  # No trailing space after the number
         # Verify no trailing whitespace on any line
         for line in lines:
             assert line == line.rstrip(), f"Line has trailing whitespace: {repr(line)}"
 
-    def test_empty_text_correct_indent(self, doc_file):
+    def test_empty_text_correct_indent(self, run_cli, write_md_file):
         """Empty-text heading has correct indentation for its depth."""
-        r = run_cli("--numbers", str(doc_file(DOC_EMPTY_TEXT)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", DOC_EMPTY_TEXT))])
         assert r.returncode == 0
-        lines = r.stdout.decode().splitlines()
+        lines = r.stdout.splitlines()
         # h2 has 2 spaces indent
         assert lines[1].startswith("  - ")
         assert lines[2].startswith("  - ")
 
 
 class TestDepthComposition:
-    def test_numbers_with_max_depth_filtered_out_no_number(self, doc_file):
+    def test_numbers_with_max_depth_filtered_out_no_number(self, run_cli, write_md_file):
         """--numbers + --max-depth 2: filtered h3 gets no number."""
-        r = run_cli("--numbers", "--max-depth", "2", str(doc_file(DOC_DEPTH_COMPOSE)))
+        r = run_cli(
+            ["--numbers", "--max-depth", "2", str(write_md_file("doc.md", DOC_DEPTH_COMPOSE))]
+        )
         assert r.returncode == 0
-        assert r.stdout == OUTLINE_DEPTH_COMPOSE_NUMBERS.encode()
+        assert r.stdout == OUTLINE_DEPTH_COMPOSE_NUMBERS
         # The filtered-out h3 doesn't consume a number: h2b is 1.2, not 1.3
-        lines = r.stdout.decode().splitlines()
+        lines = r.stdout.splitlines()
         assert lines[0] == "- 1. H1"
         assert lines[1] == "  - 1.1 H2"
         assert lines[2] == "  - 1.2 H2b"  # h2b is 1.2, not 1.3
         assert lines[3] == "- 2. H1b"
 
-    def test_max_depth_only_affects_numbering_inputs(self, doc_file):
+    def test_max_depth_only_affects_numbering_inputs(self, run_cli, write_md_file):
         """Depth filtering happens before numbering; survivors keep their numbers."""
         # Same document with and without max-depth should produce different outputs
-        r_full = run_cli("--numbers", str(doc_file(DOC_DEPTH_COMPOSE)))
-        r_depth = run_cli("--numbers", "--max-depth", "2", str(doc_file(DOC_DEPTH_COMPOSE)))
+        r_full = run_cli(["--numbers", str(write_md_file("doc.md", DOC_DEPTH_COMPOSE))])
+        r_depth = run_cli(
+            ["--numbers", "--max-depth", "2", str(write_md_file("doc.md", DOC_DEPTH_COMPOSE))]
+        )
         assert r_full.returncode == r_depth.returncode == 0
         assert r_full.stdout != r_depth.stdout
         # Full output has the h3
-        assert b"1.1.1" in r_full.stdout
+        assert "1.1.1" in r_full.stdout
         # Depth-limited output does not
-        assert b"1.1.1" not in r_depth.stdout
+        assert "1.1.1" not in r_depth.stdout
 
 
 class TestFlagAbsentRegression:
-    def test_flag_absent_byte_identical_plain_outline(self, doc_file):
+    def test_flag_absent_byte_identical_plain_outline(self, run_cli, write_md_file):
         """Without --numbers, output is byte-identical to pre-change behavior."""
-        f = doc_file(DOC_CANONICAL)
-        r_plain = run_cli(str(f))
+        f = write_md_file("doc.md", DOC_CANONICAL)
+        r_plain = run_cli([str(f)])
         assert r_plain.returncode == 0
-        assert r_plain.stdout == OUTLINE_CANONICAL_PLAIN.encode()
+        assert r_plain.stdout == OUTLINE_CANONICAL_PLAIN
 
-    def test_flag_absent_vs_flag_present_same_doc(self, doc_file):
+    def test_flag_absent_vs_flag_present_same_doc(self, run_cli, write_md_file):
         """Compare no-flag vs with-flag on the same file to ensure no regression."""
-        f = doc_file(DOC_CANONICAL)
-        r_plain = run_cli(str(f))
-        r_numbers = run_cli("--numbers", str(f))
+        f = write_md_file("doc.md", DOC_CANONICAL)
+        r_plain = run_cli([str(f)])
+        r_numbers = run_cli(["--numbers", str(f)])
         assert r_plain.returncode == r_numbers.returncode == 0
         # Plain output should not have numbers
-        assert b"1." not in r_plain.stdout or b"- 1." not in r_plain.stdout
+        assert "1." not in r_plain.stdout or "- 1." not in r_plain.stdout
         # Numbers output should have numbers
-        assert b"- 1." in r_numbers.stdout
+        assert "- 1." in r_numbers.stdout
         # Plain output should match expected plain outline exactly
-        assert r_plain.stdout == OUTLINE_CANONICAL_PLAIN.encode()
+        assert r_plain.stdout == OUTLINE_CANONICAL_PLAIN
 
-    def test_flag_absent_multiple_docs(self, doc_file):
+    def test_flag_absent_multiple_docs(self, run_cli, write_md_file):
         """Regression check across multiple document types."""
         docs = [
             (DOC_EMPTY_TEXT, OUTLINE_EMPTY_TEXT_PLAIN),
@@ -202,105 +170,105 @@ class TestFlagAbsentRegression:
             (DOC_UNICODE, OUTLINE_UNICODE_PLAIN),
         ]
         for doc, expected in docs:
-            r = run_cli(str(doc_file(doc)))
+            r = run_cli([str(write_md_file("doc.md", doc))])
             assert r.returncode == 0, f"Failed for doc: {doc[:50]}"
-            assert r.stdout == expected.encode(), f"Output mismatch for doc: {doc[:50]}"
+            assert r.stdout == expected, f"Output mismatch for doc: {doc[:50]}"
 
 
 class TestStdinPath:
-    def test_stdin_numbers_equals_file_numbers(self, doc_file):
+    def test_stdin_numbers_equals_file_numbers(self, run_cli, write_md_file):
         """--numbers reading from stdin yields same output as file path."""
-        f = doc_file(DOC_CANONICAL)
-        r_file = run_cli("--numbers", str(f))
-        r_stdin = run_cli("--numbers", stdin=DOC_CANONICAL)
+        f = write_md_file("doc.md", DOC_CANONICAL)
+        r_file = run_cli(["--numbers", str(f)])
+        r_stdin = run_cli(["--numbers"], stdin=DOC_CANONICAL.encode())
         assert r_file.returncode == r_stdin.returncode == 0
-        assert r_file.stdout == r_stdin.stdout
+        assert r_file.stdout.encode() == r_stdin.stdout
 
-    def test_stdin_empty_text_numbers(self, doc_file):
+    def test_stdin_empty_text_numbers(self, run_cli):
         """Stdin mode with empty-text headings."""
-        r_stdin = run_cli("--numbers", stdin=DOC_EMPTY_TEXT)
+        r_stdin = run_cli(["--numbers"], stdin=DOC_EMPTY_TEXT.encode())
         assert r_stdin.returncode == 0
         assert r_stdin.stdout == OUTLINE_EMPTY_TEXT_NUMBERS.encode()
 
-    def test_stdin_depth_composition_numbers(self, doc_file):
+    def test_stdin_depth_composition_numbers(self, run_cli):
         """Stdin mode with --numbers + --max-depth composition."""
-        r_stdin = run_cli("--numbers", "--max-depth", "2", stdin=DOC_DEPTH_COMPOSE)
+        r_stdin = run_cli(["--numbers", "--max-depth", "2"], stdin=DOC_DEPTH_COMPOSE.encode())
         assert r_stdin.returncode == 0
         assert r_stdin.stdout == OUTLINE_DEPTH_COMPOSE_NUMBERS.encode()
 
 
 class TestFencedCodeBlocks:
-    def test_fenced_headings_still_skipped_with_numbers(self, doc_file):
+    def test_fenced_headings_still_skipped_with_numbers(self, run_cli, write_md_file):
         """Headings inside ``` fences are still skipped when --numbers is on."""
-        r = run_cli("--numbers", str(doc_file(DOC_FENCE)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", DOC_FENCE))])
         assert r.returncode == 0
-        assert r.stdout == OUTLINE_FENCE_NUMBERS.encode()
+        assert r.stdout == OUTLINE_FENCE_NUMBERS
         # Fake1 and Fake2 should not appear or affect numbering
-        lines = r.stdout.decode().splitlines()
+        lines = r.stdout.splitlines()
         assert len(lines) == 2  # Only Real and Real2
         assert lines[0] == "- 1. Real"
         assert lines[1] == "  - 1.1 Real2"  # Real2 is 1.1, not 1.2 (Fake1/2 skipped)
 
-    def test_unclosed_fence_with_numbers(self, doc_file):
+    def test_unclosed_fence_with_numbers(self, run_cli):
         """Unclosed fence swallows rest even with --numbers."""
         doc = "# Real\n```\n# Fake\n## AlsoFake\n"
-        r = run_cli("--numbers", stdin=doc)
+        r = run_cli(["--numbers"], stdin=doc.encode())
         assert r.returncode == 0
         lines = r.stdout.decode().splitlines()
         assert len(lines) == 1
         assert lines[0] == "- 1. Real"  # Only the h1 before the fence
 
-    def test_tilde_fence_with_numbers(self, doc_file):
+    def test_tilde_fence_with_numbers(self, run_cli):
         """Tilde fences also skip headings with --numbers."""
         doc = "~~~\n# Fake\n~~~\n# Real\n"
-        r = run_cli("--numbers", stdin=doc)
+        r = run_cli(["--numbers"], stdin=doc.encode())
         assert r.returncode == 0
         assert r.stdout == b"- 1. Real\n"  # Fake skipped
 
 
 class TestSkippedLevels:
-    def test_skipped_level_renders_mechanical_zero(self, doc_file):
+    def test_skipped_level_renders_mechanical_zero(self, run_cli, write_md_file):
         """Skipped intermediate level renders a mechanical 0: h1 then h3 -> 1.0.1."""
-        r = run_cli("--numbers", str(doc_file(DOC_GAP)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", DOC_GAP))])
         assert r.returncode == 0
-        assert r.stdout == OUTLINE_GAP_NUMBERS.encode()
-        lines = r.stdout.decode().splitlines()
+        assert r.stdout == OUTLINE_GAP_NUMBERS
+        lines = r.stdout.splitlines()
         assert lines[1] == "    - 1.0.1 Deep child"  # h3 after h1, no h2
 
-    def test_multiple_skipped_levels(self, doc_file):
+    def test_multiple_skipped_levels(self, run_cli):
         """Multiple skipped levels: h1 then h4 -> 1.0.0.1."""
         doc = "# A\n#### B\n"
-        r = run_cli("--numbers", stdin=doc)
+        r = run_cli(["--numbers"], stdin=doc.encode())
         assert r.returncode == 0
         lines = r.stdout.decode().splitlines()
         assert lines[1] == "      - 1.0.0.1 B"
 
 
 class TestUnicodeAndEncoding:
-    def test_unicode_text_with_numbers(self, doc_file):
+    def test_unicode_text_with_numbers(self, run_cli, write_md_file):
         """Unicode heading text works with --numbers."""
-        r = run_cli("--numbers", str(doc_file(DOC_UNICODE)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", DOC_UNICODE))])
         assert r.returncode == 0
-        assert r.stdout == OUTLINE_UNICODE_NUMBERS.encode()
-        lines = r.stdout.decode().splitlines()
+        assert r.stdout == OUTLINE_UNICODE_NUMBERS
+        lines = r.stdout.splitlines()
         assert lines[0] == "- 1. 标题 一"
         assert lines[1] == "    - 1.0.1 🚀 Deep"
 
 
 class TestHelpAndFlagParsing:
-    def test_help_exits_zero_and_mentions_flag(self):
+    def test_help_exits_zero_and_mentions_flag(self, run_cli):
         """--help exits 0 and mentions the --numbers flag."""
-        r = run_cli("--help")
+        r = run_cli(["--help"])
         assert r.returncode == 0
-        assert b"--numbers" in r.stdout
-        assert b"section numbers" in r.stdout
+        assert "--numbers" in r.stdout
+        assert "section numbers" in r.stdout
 
-    def test_flag_store_true_no_value_accepted(self, doc_file):
+    def test_flag_store_true_no_value_accepted(self, run_cli, write_md_file):
         """--numbers is a store_true flag and rejects an explicit value."""
-        f = doc_file(DOC_CANONICAL)
-        r = run_cli("--numbers=true", str(f))
+        f = write_md_file("doc.md", DOC_CANONICAL)
+        r = run_cli(["--numbers=true", str(f)])
         assert r.returncode == 2  # argparse error
-        assert b"ignored explicit argument" in r.stderr
+        assert "ignored explicit argument" in r.stderr
 
 
 # ===========================================================================
@@ -337,11 +305,11 @@ class TestLibraryNumberingPipeline:
         numbered = [(1, "A", "1."), (2, "B", "1.1")]
         assert mdoutline.render_outline(numbered) == "- 1. A\n  - 1.1 B\n"
 
-    def test_library_pipeline_matches_cli_numbers(self, doc_file):
+    def test_library_pipeline_matches_cli_numbers(self, run_cli, write_md_file):
         """Library pipeline (extract -> filter -> number -> render) matches CLI with --numbers."""
         doc = DOC_CANONICAL
         # CLI
-        r_cli = run_cli("--numbers", str(doc_file(doc)))
+        r_cli = run_cli(["--numbers", str(write_md_file("doc.md", doc))])
         assert r_cli.returncode == 0
 
         # Library
@@ -350,45 +318,45 @@ class TestLibraryNumberingPipeline:
         numbered = mdoutline.number_headings(filtered)
         outline = mdoutline.render_outline(numbered)
 
-        assert outline.encode() == r_cli.stdout
+        assert outline == r_cli.stdout
 
 
 class TestEmptyInputs:
-    def test_empty_input_with_numbers(self, doc_file):
+    def test_empty_input_with_numbers(self, run_cli, write_md_file):
         """Empty input with --numbers produces empty output."""
-        r = run_cli("--numbers", str(doc_file("")))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", ""))])
         assert r.returncode == 0
-        assert r.stdout == b""
+        assert r.stdout == ""
 
-    def test_no_headings_with_numbers(self, doc_file):
+    def test_no_headings_with_numbers(self, run_cli, write_md_file):
         """Document with no headings and --numbers produces empty output."""
         doc = "Just some text\nno headings here\n"
-        r = run_cli("--numbers", str(doc_file(doc)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", doc))])
         assert r.returncode == 0
-        assert r.stdout == b""
+        assert r.stdout == ""
 
 
 class TestEdgeCases:
-    def test_single_heading_numbers(self, doc_file):
+    def test_single_heading_numbers(self, run_cli, write_md_file):
         """Single heading with --numbers."""
         doc = "# Only One\n"
-        r = run_cli("--numbers", str(doc_file(doc)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", doc))])
         assert r.returncode == 0
-        assert r.stdout == b"- 1. Only One\n"
+        assert r.stdout == "- 1. Only One\n"
 
-    def test_all_same_depth_numbers(self, doc_file):
+    def test_all_same_depth_numbers(self, run_cli, write_md_file):
         """All headings at same depth with --numbers."""
         doc = "# A\n# B\n# C\n"
-        r = run_cli("--numbers", str(doc_file(doc)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", doc))])
         assert r.returncode == 0
-        assert r.stdout == b"- 1. A\n- 2. B\n- 3. C\n"
+        assert r.stdout == "- 1. A\n- 2. B\n- 3. C\n"
 
-    def test_deep_nesting_numbers(self, doc_file):
+    def test_deep_nesting_numbers(self, run_cli, write_md_file):
         """Deep nesting (h1->h2->h3->h4->h5->h6) with --numbers."""
         doc = "# L1\n## L2\n### L3\n#### L4\n##### L5\n###### L6\n"
-        r = run_cli("--numbers", str(doc_file(doc)))
+        r = run_cli(["--numbers", str(write_md_file("doc.md", doc))])
         assert r.returncode == 0
-        lines = r.stdout.decode().splitlines()
+        lines = r.stdout.splitlines()
         assert lines[0] == "- 1. L1"
         assert lines[1] == "  - 1.1 L2"
         assert lines[2] == "    - 1.1.1 L3"
@@ -398,48 +366,33 @@ class TestEdgeCases:
 
 
 class TestDeploymentReadiness:
-    def test_console_script_numbers_flag_works(self):
+    def test_console_script_numbers_flag_works(self, run_cli):
         """Production console script 'mdoutline' supports --numbers."""
-        exe = shutil.which("mdoutline")
-        assert exe, "production console script 'mdoutline' not on PATH"
-        r = subprocess.run(
-            [exe, "--help"],
-            capture_output=True,
-            timeout=60,
-        )
+        cmd = resolve_mdoutline_cmd()
+        if cmd is None:
+            pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
+        r = run_cli(["--help"])
         assert r.returncode == 0
-        assert b"--numbers" in r.stdout
+        assert "--numbers" in r.stdout
 
-    def test_console_script_numbers_output(self, doc_file):
+    def test_console_script_numbers_output(self, run_cli, write_md_file):
         """Console script with --numbers produces correct output."""
-        exe = shutil.which("mdoutline")
-        if not exe:
-            pytest.skip("production console script 'mdoutline' not on PATH")
-        f = doc_file(DOC_CANONICAL)
-        r = subprocess.run(
-            [exe, "--numbers", str(f)],
-            capture_output=True,
-            timeout=60,
-        )
+        cmd = resolve_mdoutline_cmd()
+        if cmd is None:
+            pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
+        f = write_md_file("doc.md", DOC_CANONICAL)
+        r = run_cli(["--numbers", str(f)])
         assert r.returncode == 0
-        assert r.stdout == OUTLINE_CANONICAL_NUMBERS.encode()
+        assert r.stdout == OUTLINE_CANONICAL_NUMBERS
 
-    def test_python_m_matches_console_script_numbers(self, doc_file):
+    def test_python_m_matches_console_script_numbers(self, run_cli, write_md_file, monkeypatch):
         """python -m mdoutline --numbers matches console script output."""
-        exe = shutil.which("mdoutline")
-        if not exe:
-            pytest.skip("production console script 'mdoutline' not on PATH")
-        f = doc_file(DOC_CANONICAL)
-        script = subprocess.run(
-            [exe, "--numbers", str(f)],
-            capture_output=True,
-            timeout=60,
-        )
-        mod = subprocess.run(
-            [sys.executable, "-m", "mdoutline", "--numbers", str(f)],
-            capture_output=True,
-            cwd=REPO_ROOT,
-            timeout=60,
-        )
+        cmd = resolve_mdoutline_cmd()
+        if cmd is None:
+            pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
+        f = write_md_file("doc.md", DOC_CANONICAL)
+        script = run_cli(["--numbers", str(f)])
+        monkeypatch.setenv("MDOUTLINE_BIN", f"{sys.executable} -m mdoutline")
+        mod = run_cli(["--numbers", str(f)])
         assert mod.returncode == script.returncode == 0
         assert mod.stdout == script.stdout

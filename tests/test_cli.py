@@ -1,5 +1,11 @@
 """CLI tests for mdoutline."""
 
+from pathlib import Path
+
+import pytest
+
+from conftest import resolve_mdoutline_cmd
+
 
 def test_file_argument(tmp_path, run_cli, write_md_file):
     """Test reading from a file argument."""
@@ -273,3 +279,20 @@ def test_max_depth_equals_arg(tmp_path, run_cli, write_md_file):
     assert result.returncode == 0
     assert result.stdout == expected
     assert result.stderr == ""
+
+
+def test_console_script_installed_and_runs(run_cli):
+    """Single owner of the script-installed policy for the whole suite.
+
+    When the resolver finds a command (MDOUTLINE_BIN override, PATH lookup, or
+    the interpreter's scripts dir) it must exist on disk and execute; when the
+    resolver finds nothing, skip with a reason. No other test hard-asserts the
+    script's presence.
+    """
+    cmd = resolve_mdoutline_cmd()
+    if cmd is None:
+        pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
+    assert Path(cmd[0]).exists(), f"resolved mdoutline command missing on disk: {cmd[0]}"
+    result = run_cli(["--help"])
+    assert result.returncode == 0
+    assert "usage" in result.stdout.lower()
