@@ -273,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
         type=_non_negative_int,
         default=None,
         metavar="N",
-        help="maximum heading depth to include (1-6, default: all depths)",
+        help="maximum heading depth to include (default: all depths)",
     )
     parser.add_argument(
         "--numbers",
