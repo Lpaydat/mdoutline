@@ -1,6 +1,7 @@
 """Tests for MDOUTLINE_BIN resolution (Item 9)."""
 
 import os
+
 import pytest
 
 from conftest import resolve_mdoutline_cmd
@@ -17,7 +18,7 @@ def test_whitespace_bin_resolves_like_unset(monkeypatch):
     from pathlib import Path
 
     scripts_dir = sysconfig.get_path("scripts")
-    if Path(scripts_dir / "mdoutline").exists():
+    if Path(scripts_dir).joinpath("mdoutline").exists():
         pytest.skip(
             f"Script exists at {scripts_dir / 'mdoutline'}, cannot test whitespace-only case"
         )
