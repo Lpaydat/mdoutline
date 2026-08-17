@@ -1,6 +1,6 @@
 # mdoutline — Markdown outline extractor
 
-Repo: /home/lpaydat/workspace/mdoutline
+Repo: this repository
 
 I want a small CLI that shows the heading structure of a Markdown file as an
 outline. I read a lot of long notes and want to see their skeleton at a glance.

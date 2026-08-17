@@ -39,15 +39,19 @@ def test_whitespace_bin_resolves_like_unset(monkeypatch):
     monkeypatch.setenv("PATH", original_path)
 
 
-def test_valid_path_resolves(monkeypatch):
+def test_valid_path_resolves(monkeypatch, tmp_path):
     """Valid MDOUTLINE_BIN path value resolves correctly."""
     original_path = os.environ.get("PATH", "")
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    bin_path = tmp_path / "mdoutline-bin" / "mdoutline"
+    bin_path.parent.mkdir(parents=True)
+    bin_path.write_text("#!/bin/sh\n")
+    bin_path.chmod(0o755)
 
-    monkeypatch.setenv("MDOUTLINE_BIN", "/home/lpaydat/workspace/mdoutline/.venv/bin/mdoutline")
+    monkeypatch.setenv("MDOUTLINE_BIN", str(bin_path))
     result = resolve_mdoutline_cmd()
     assert result is not None, "Valid MDOUTLINE_BIN should resolve"
-    assert result[0] == "/home/lpaydat/workspace/mdoutline/.venv/bin/mdoutline"
+    assert result[0] == str(bin_path)
 
     monkeypatch.setenv("PATH", original_path)
 
@@ -65,11 +69,14 @@ def test_multi_token_shlex_value_resolves(monkeypatch):
     monkeypatch.setenv("PATH", original_path)
 
 
-def test_venv_on_path_with_whitespace_finds_script(monkeypatch):
+def test_venv_on_path_with_whitespace_finds_script(monkeypatch, tmp_path):
     """With venv bin on PATH, MDOUTLINE_BIN whitespace resolves to the script."""
-    # Ensure PATH contains venv bin
     original_path = os.environ.get("PATH", "")
-    monkeypatch.setenv("PATH", "/home/lpaydat/workspace/mdoutline/.venv/bin:/usr/bin:/bin")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "mdoutline").write_text("#!/bin/sh\n")
+    (bin_dir / "mdoutline").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
 
     monkeypatch.setenv("MDOUTLINE_BIN", "   ")
     result = resolve_mdoutline_cmd()

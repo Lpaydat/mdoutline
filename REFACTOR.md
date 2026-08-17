@@ -1,6 +1,6 @@
 # REFACTOR.md — mdoutline refactor candidates (validated)
 
-Validated against current main (repo: /home/lpaydat/workspace/mdoutline).
+Validated against current main (repo: this repository).
 All candidates below passed independent reviewer verification with executed
 evidence. Suite baseline at time of validation: 263/263 tests green,
 `make check` green.
