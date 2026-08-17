@@ -284,10 +284,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     # Determine source name for error messages
-    source_name = args.file if args.file is not None else "<stdin>"
+    # Treat '-' as stdin (Unix convention)
+    use_stdin = args.file is None or args.file == "-"
+    source_name = "<stdin>" if use_stdin else args.file
 
     try:
-        if args.file is not None:
+        if not use_stdin:
             with open(args.file, encoding="utf-8-sig") as f:
                 content = f.read()
         else:
