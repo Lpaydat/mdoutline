@@ -20,6 +20,7 @@ really contains depths 1-6"), never to compute expected output.
 from __future__ import annotations
 
 import shlex
+import shutil
 import sys
 from pathlib import Path
 
@@ -381,6 +382,9 @@ class TestDeploymentReadiness:
         cmd = resolve_mdoutline_cmd()
         if cmd is None:
             pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
+        bash = shutil.which("bash")
+        if bash is None:
+            pytest.skip("bash is required for PIPESTATUS pipeline test")
         # ~200KB outline piped into `head -n 1`: must exit 13 without a
         # traceback, exactly like the no-flag behavior (ticket-01 contract).
         big = tmp_path / "big.md"
@@ -388,7 +392,7 @@ class TestDeploymentReadiness:
         r = run_cli_pipeline(
             f"--max-depth 1 {shlex.quote(str(big))} | head -n 1 >/dev/null; exit ${{PIPESTATUS[0]}}",
             stdin="",
-            executable="/bin/bash",
+            executable=bash,
         )
         assert r.returncode == 13, (r.returncode, r.stderr)
         assert "Traceback" not in r.stderr

@@ -296,3 +296,13 @@ def test_console_script_installed_and_runs(run_cli):
     result = run_cli(["--help"])
     assert result.returncode == 0
     assert "usage" in result.stdout.lower()
+
+
+def test_malformed_mdoutline_bin_treated_as_not_found(monkeypatch):
+    """Malformed MDOUTLINE_BIN (unclosed quote) is treated as not-found.
+
+    Regression test for t_14aac17c: the resolver should return None instead of
+    raising ValueError when MDOUTLINE_BIN contains unparseable shell syntax.
+    """
+    monkeypatch.setenv("MDOUTLINE_BIN", '"unclosed')
+    assert resolve_mdoutline_cmd() is None

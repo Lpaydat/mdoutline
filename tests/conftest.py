@@ -23,12 +23,17 @@ def resolve_mdoutline_cmd() -> list[str] | None:
 
     Precedence:
     1. MDOUTLINE_BIN env var (operator override, trusted blindly)
+       An unparseable override is treated as not-found (resolver-empty), not an error.
     2. shutil.which("mdoutline")
     3. sysconfig.get_path("scripts") / "mdoutline"
     4. None
     """
-    if cmd := shlex.split(os.environ.get("MDOUTLINE_BIN", "")):
-        return cmd
+    try:
+        if cmd := shlex.split(os.environ.get("MDOUTLINE_BIN", "")):
+            return cmd
+    except ValueError:
+        # Malformed MDOUTLINE_BIN (e.g., unclosed quote) - treat as not-found
+        return None
 
     if found := shutil.which("mdoutline"):
         return [found]
