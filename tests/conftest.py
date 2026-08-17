@@ -1,6 +1,17 @@
 """Shared CLI invocation seam for test suite.
 
 Provides centralized mdoutline binary resolution and subprocess runner.
+
+Two-tier command resolution design:
+- Strict resolver (resolve_mdoutline_cmd): script-only resolution for
+  deployment-under-test detection. Returns None when no console script
+  is available, which test suites use as a skip signal for script-deployment
+  tests.
+- Runner-level fallback (_require_cmd_and_env): when the strict resolver
+  returns None, falls back to [sys.executable, "-m", "mdoutline"] for
+  foreign-interpreter portability. This allows tests to run under any
+  Python interpreter when the repo root is on PYTHONPATH.
+
 The scripts dir comes from sysconfig under the ACTIVE interpreter - never
 derived from the interpreter executable's own path, which would follow
 symlinks out of the venv to the base interpreter's install dir.
@@ -10,6 +21,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 import sysconfig
 from pathlib import Path
 
@@ -21,12 +33,17 @@ TIMEOUT_S = 120
 def resolve_mdoutline_cmd() -> list[str] | None:
     """Resolve mdoutline CLI command as argv list, or None if not found.
 
+    Strict script-only resolver for deployment-under-test detection.
+    Returns None when no console script is available - test suites use
+    this as a skip signal for script-deployment tests. The -m fallback
+    is handled at the runner level (_require_cmd_and_env), not here.
+
     Precedence:
     1. MDOUTLINE_BIN env var (operator override, trusted blindly)
        An unparseable override is treated as not-found (resolver-empty), not an error.
     2. shutil.which("mdoutline")
     3. sysconfig.get_path("scripts") / "mdoutline"
-    4. None
+    4. None (caller may fall back to [sys.executable, "-m", "mdoutline"])
     """
     try:
         if cmd := shlex.split(os.environ.get("MDOUTLINE_BIN", "")):
@@ -51,12 +68,19 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 def _require_cmd_and_env() -> tuple[list[str], dict[str, str]]:
     """Resolve mdoutline command and build environment with PYTHONPATH.
 
+    Two-tier resolution for portability:
+    1. Strict script resolver (MDOUTLINE_BIN -> console script on PATH ->
+       sysconfig scripts dir). Used for deployment-under-test detection.
+    2. Fallback to [sys.executable, "-m", "mdoutline"] when no script is
+       found, enabling tests under any interpreter when repo root is on
+       PYTHONPATH (foreign-interpreter portability).
+
     Returns:
-        Tuple of (cmd_list, env_dict). Raises RuntimeError if command not found.
+        Tuple of (cmd_list, env_dict).
     """
     cmd = resolve_mdoutline_cmd()
     if cmd is None:
-        raise RuntimeError("mdoutline command not found - set MDOUTLINE_BIN or install the package")
+        cmd = [sys.executable, "-m", "mdoutline"]
 
     env = os.environ.copy()
     pythonpath = str(REPO_ROOT)
