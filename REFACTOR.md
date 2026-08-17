@@ -86,8 +86,8 @@ ticket them together or fold C2 into C1's ticket.
 
 ## C3 — Dead ruff config block in pyproject.toml (fixed by ticket-refactor-02) [Worth exploring]
 
-**Problem.** `pyproject.toml` originally carried `ruff config` + ``
-(line-length=100, target-version=py311, select=[E,F,W,I,UP,B,SIM],
+**Problem.** `pyproject.toml` originally carried a `[tool.ruff]` + `[tool.ruff.lint]`
+block (line-length=100, target-version=py311, select=[E,F,W,I,UP,B,SIM],
 ignore=[E501]). Ruff never read it: `ruff.toml:1-9` is a strict superset
 (identical values plus `[lint.isort] known-first-party=["mdoutline"]`) and
 ruff's documented discovery order resolves Settings path to `ruff.toml`.
