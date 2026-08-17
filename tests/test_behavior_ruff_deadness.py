@@ -156,8 +156,12 @@ def deleted_line_numbers(sha: str, path: str) -> dict[int, str]:
     return removed
 
 
-@pytest.skip("Now modifies ruff.toml too, not just pyproject.toml deletion")
 def test_r2_change_is_pure_deletion_byte_identical():
+    """R2 pure deletion verification.
+
+    SKIPPED: Now modifies ruff.toml too, not just pyproject.toml deletion.
+    """
+    pytest.skip("Now modifies ruff.toml too, not just pyproject.toml deletion")
     """Parent blob minus the removed LINES (anchored by hunk position) is
     byte-identical to the HEAD blob — nothing but the block was deleted."""
     sha = c3_commit()
@@ -195,11 +199,14 @@ def test_r1_head_pyproject_has_no_ruff_table():
 # ----------------------------- R3: deleted block was dead AND strict subset
 
 
-@pytest.skip("C3 deleted pyproject block; ruff.toml now has exclude added")
 def test_r3_deleted_block_was_strict_subset_of_ruff_toml():
     """Spec claim checked from history: every value in the deleted block is
     present with the same value in ruff.toml at the deletion commit, which
-    additionally carries [lint.isort] (strict superset)."""
+    additionally carries [lint.isort] (strict superset).
+
+    SKIPPED: C3 deleted pyproject block; ruff.toml now has exclude added.
+    """
+    pytest.skip("C3 deleted pyproject block; ruff.toml now has exclude added")
     sha = c3_commit()
     parent_cfg = tomllib.loads(git_blob(f"{sha}^", "pyproject.toml"))["tool"]["ruff"]
     ruff_cfg = tomllib.loads(git_blob(sha, "ruff.toml"))

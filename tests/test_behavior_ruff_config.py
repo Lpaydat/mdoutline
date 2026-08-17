@@ -14,11 +14,11 @@ the config files that ARE the deliverable.
 
 import json
 import os
-import pytest
 import shutil
 import subprocess
 import tomllib
 from pathlib import Path
+import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 TIMEOUT_S = 60
@@ -297,11 +297,14 @@ def test_format_behavior_identical_pre_vs_post_deletion(tmp_path):
     assert diffs["post"].strip(), "format diff empty — probe not sensitive"
 
 
-@pytest.skip("No [tool.ruff] block in pyproject.toml to mangle (moved to ruff.toml)")
 def test_mangled_ruff_block_in_pyproject_changes_nothing(tmp_path):
     """S3 deadness proof: re-adding a MANGLED [tool.ruff] block (line-length=10,
     select=["E"]) to pyproject.toml leaves effective settings byte-identical —
-    proving pyproject's ruff table is dead, not merely redundant."""
+    proving pyproject's ruff table is dead, not merely redundant.
+
+    SKIPPED: No [tool.ruff] block in pyproject.toml to mangle (moved to ruff.toml).
+    """
+    pytest.skip("No [tool.ruff] block in pyproject.toml to mangle (moved to ruff.toml)")
     git, ruff = find_git(), find_ruff()
     mangled = (
         parent_pyproject(git)
