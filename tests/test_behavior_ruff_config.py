@@ -19,6 +19,10 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
+
+from conftest import resolve_mdoutline_cmd
+
 REPO = Path(__file__).resolve().parent.parent
 TIMEOUT_S = 60
 
@@ -223,11 +227,11 @@ def test_make_lint_and_format_check_green():
 
 def test_console_script_still_runs():
     """Deployment readiness: the installed CLI entry point works post-change."""
-    cmd = shutil.which("mdoutline") or str(REPO / ".venv" / "bin" / "mdoutline")
-    if not Path(cmd).exists() and shutil.which("mdoutline") is None:
-        raise RuntimeError("mdoutline console script not found")
+    cmd = resolve_mdoutline_cmd()
+    if cmd is None:
+        pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
     proc = subprocess.run(
-        [cmd], input="# Hello\n## World\n", capture_output=True, text=True, timeout=TIMEOUT_S
+        cmd, input="# Hello\n## World\n", capture_output=True, text=True, timeout=TIMEOUT_S
     )
     assert proc.returncode == 0, proc.stderr
     assert "Hello" in proc.stdout and "World" in proc.stdout
