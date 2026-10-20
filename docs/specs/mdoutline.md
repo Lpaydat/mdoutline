@@ -38,8 +38,10 @@ Rust CLI stack was not used (spec pins Python stdlib-only).
   `--numbers`; errors to stderr, exit 1 on failure, exit 0 on success.
 - Extraction: line-oriented ATX scan. A line is a heading iff it is outside a
   fenced code block, has ≤ 3 leading spaces (CommonMark tolerance), then 1–6
-  `#`, then a space or end of line; trailing closing `#`s are stripped from the
-  text. Fences open on lines whose first non-space characters are three or
+  `#`, then a space or end of line; a trailing `#` run is stripped only when it
+  forms a closing sequence: it is preceded by a space/tab, or the run is the
+  entire text after the opener's separating space (so `## C#` keeps its `#`).
+  Fences open on lines whose first non-space characters are three or
   more backticks or tildes (matching char); a closing fence has the same
   fence char as the opener, a run of at least three and at least the opener's
   length, and nothing after the run but whitespace (no info string); an
