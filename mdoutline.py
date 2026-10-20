@@ -152,6 +152,7 @@ def number_headings(headings: list[tuple[int, str]]) -> list[tuple[int, str, str
 
     Args:
         headings: A list of (depth, text) tuples from extract_headings().
+            Each depth must be in 1-6.
 
     Returns:
         A new list of (depth, text, number) tuples. The number is the
@@ -166,6 +167,10 @@ def number_headings(headings: list[tuple[int, str]]) -> list[tuple[int, str, str
         - Empty input returns an empty list.
         - The input list is never mutated.
 
+    Raises:
+        ValueError: If a heading depth is outside 1-6. Inputs from
+            extract_headings() are always within 1-6.
+
     Example:
         >>> number_headings([(1, "A"), (2, "B"), (2, "C"), (3, "D"), (2, "E"), (1, "F")])
         [(1, 'A', '1.'), (2, 'B', '1.1'), (2, 'C', '1.2'), (3, 'D', '1.2.1'), (2, 'E', '1.3'), (1, 'F', '2.')]
@@ -176,6 +181,9 @@ def number_headings(headings: list[tuple[int, str]]) -> list[tuple[int, str, str
     result: list[tuple[int, str, str]] = []
 
     for depth, text in headings:
+        if not 1 <= depth <= 6:
+            raise ValueError(f"depth must be 1-6, got {depth}")
+
         # Increment counter at current depth
         counter[depth] += 1
 

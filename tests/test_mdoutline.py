@@ -1,5 +1,7 @@
 """Tests for mdoutline module."""
 
+import pytest
+
 import mdoutline
 
 
@@ -700,3 +702,21 @@ def test_number_headings_complex_structure():
         (2, "Two.Two", "2.2"),
     ]
     assert result == expected
+
+
+def test_number_headings_depth_7_raises_value_error():
+    """Depth 7 raises ValueError naming the depth, not a raw IndexError."""
+    with pytest.raises(ValueError, match="depth must be 1-6, got 7"):
+        mdoutline.number_headings([(7, "x")])
+
+
+def test_number_headings_depth_0_raises_value_error():
+    """Depth 0 raises ValueError naming the depth, not a silent empty number."""
+    with pytest.raises(ValueError, match="depth must be 1-6, got 0"):
+        mdoutline.number_headings([(0, "zero")])
+
+
+def test_number_headings_negative_depth_raises_value_error():
+    """Negative depth raises ValueError naming the depth, not a silent empty number."""
+    with pytest.raises(ValueError, match="depth must be 1-6, got -1"):
+        mdoutline.number_headings([(-1, "neg")])
