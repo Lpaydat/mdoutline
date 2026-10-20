@@ -48,6 +48,28 @@ def test_disk_full_large_doc(run_cli_pipeline, tmp_path, write_md_file):
     assert "Traceback" not in stderr
 
 
+def test_disk_full_small_output_flush(run_cli_pipeline):
+    """Test disk full (/dev/full) with small output fails cleanly at flush.
+
+    Loop-file caveat: with a small outline the write() succeeds into the
+    stdout buffer and the ENOSPC surfaces only at flush(). The error must
+    still be one clean stderr line with rc=1, and the devnull dup2 guard
+    must keep the interpreter-shutdown flush quiet (no "Exception ignored"
+    OSError noise on stderr).
+    """
+    result = run_cli_pipeline(">/dev/full", stdin="# tiny\n")
+
+    assert result.returncode == 1
+    stderr = result.stderr
+    # Exactly one line starting with "mdoutline: cannot write"
+    lines = stderr.strip().split("\n")
+    assert len(lines) == 1
+    assert lines[0].startswith("mdoutline: cannot write to standard output")
+    # No traceback and no interpreter-shutdown flush noise
+    assert "Traceback" not in stderr
+    assert "Exception ignored" not in stderr
+
+
 def test_broken_pipe_remains_quiet(run_cli_pipeline):
     """Test existing broken pipe behavior remains unchanged.
 
