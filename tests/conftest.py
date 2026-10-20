@@ -101,7 +101,8 @@ def _require_cmd_and_env() -> tuple[list[str], dict[str, str]]:
                         "mdoutline: warning: MDOUTLINE_BIN set but is empty/whitespace; falling back to python -m mdoutline (probes REPO SOURCE, not a deployed install)",
                         file=sys.stderr,
                     )
-                # If parsed, the setter override was explicitly invalid/unparseable
+                # Non-empty parse never reaches here: the resolver would
+                # have returned that override instead of falling back
             except ValueError as e:
                 # Malformed (e.g., unclosed quote)
                 print(

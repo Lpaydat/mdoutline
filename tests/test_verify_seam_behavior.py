@@ -339,8 +339,9 @@ def test_seam_resolver_none_only_when_nothing_discoverable():
 
 # ---------------------------------------------------------------------------
 # R3 - PYTHONPATH construction (observable via the pipeline fixture + shell)
-# Conditional since mdoutline-4ta: injected on the -m fallback path only, so
-# a script-found command imports the installed artifact, not repo source.
+# Conditional since mdoutline-4ta: injected on -m module invocations only -
+# the no-script fallback and MDOUTLINE_BIN module overrides - so a
+# script-found command imports the installed artifact, not repo source.
 # ---------------------------------------------------------------------------
 
 
