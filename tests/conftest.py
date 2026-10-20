@@ -7,12 +7,14 @@ Two-tier command resolution design:
   deployment-under-test detection. Returns None when no console script
   is available, which test suites use as a skip signal for script-deployment
   tests.
-- Runner-level fallback (_require_cmd_and_env): when the strict resolver
-  returns None, falls back to [sys.executable, "-m", "mdoutline"] for
-  foreign-interpreter portability. Any `-m mdoutline` command injects
-  PYTHONPATH=REPO_ROOT so the child can import the repo-root module; a
-  script-found command gets no injection, so repo source cannot shadow
-  the installed artifact.
+- Runner seam (_require_cmd_and_env): MDOUTLINE_BIN is honored verbatim;
+  otherwise the seam probes THIS checkout's source via
+  [sys.executable, "-m", "mdoutline"]. A discovered console script is
+  deliberately not the default: its editable install imports the main
+  checkout's mdoutline.py, never this checkout's (review r1 class 1).
+  Any `-m mdoutline` command injects PYTHONPATH=REPO_ROOT so the child
+  imports the repo-root module; a script command (MDOUTLINE_BIN only)
+  gets no injection, so repo source cannot shadow the installed artifact.
 
 The scripts dir comes from sysconfig under the ACTIVE interpreter - never
 derived from the interpreter executable's own path, which would follow
@@ -70,47 +72,49 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 def _require_cmd_and_env() -> tuple[list[str], dict[str, str]]:
     """Resolve mdoutline command and build the child environment.
 
-    Two-tier resolution for portability:
-    1. Strict script resolver (MDOUTLINE_BIN -> console script on PATH ->
-       sysconfig scripts dir). Used for deployment-under-test detection.
-       A script-found command runs with the caller's environment untouched:
-       injecting PYTHONPATH would let repo source shadow the installed
-       artifact under test.
-    2. Fallback to [sys.executable, "-m", "mdoutline"] when no script is
-       found, enabling tests under any interpreter (foreign-interpreter
-       portability).
+    Resolution:
+    1. MDOUTLINE_BIN, when set and parseable: honored verbatim as the
+       deployment-under-test command; runs with the caller's environment
+       untouched (injecting PYTHONPATH would let repo source shadow the
+       installed artifact under test).
+    2. Everything else (no override, or an unparseable/whitespace one):
+       [sys.executable, "-m", "mdoutline"], probing THIS checkout's source
+       (review r1 class 1). The discovered console script is deliberately
+       not the default: its editable install imports the main checkout's
+       mdoutline.py, never this checkout's.
 
-    Any `-m mdoutline` command (fallback or MDOUTLINE_BIN module override)
+    Any `-m mdoutline` command (default or MDOUTLINE_BIN module override)
     injects PYTHONPATH = REPO_ROOT + existing so the child can import the
     repo-root module; script commands get no injection.
 
     Returns:
         Tuple of (cmd_list, env_dict).
     """
-    cmd = resolve_mdoutline_cmd()
-    if cmd is None:
-        # Emit warning when resolver returns None
-        mdoutline_bin = os.environ.get("MDOUTLINE_BIN", "")
-        if mdoutline_bin:
-            # Try to parse to see if it's malformed or whitespace-only
+    override = os.environ.get("MDOUTLINE_BIN", "")
+    script_cmd = resolve_mdoutline_cmd()
+    if override and script_cmd is not None:
+        # Operator override, honored verbatim (deployment-under-test runs).
+        cmd = script_cmd
+    else:
+        # Default: probe THIS checkout's source (review r1 class 1). The
+        # discovered console script's editable install imports the main
+        # checkout's mdoutline.py, so honoring it by default left every
+        # CLI pin unable to fail against this checkout's code.
+        if override:
+            # Override set but unparseable or whitespace-only
             try:
-                parsed = shlex.split(mdoutline_bin)
-                if not parsed:
-                    # Whitespace-only
+                if not shlex.split(override):
                     print(
                         "mdoutline: warning: MDOUTLINE_BIN set but is empty/whitespace; falling back to python -m mdoutline (probes REPO SOURCE, not a deployed install)",
                         file=sys.stderr,
                     )
-                # Non-empty parse never reaches here: the resolver would
-                # have returned that override instead of falling back
             except ValueError as e:
-                # Malformed (e.g., unclosed quote)
                 print(
-                    f"mdoutline: warning: MDOUTLINE_BIN '{mdoutline_bin}' is unparseable ({e}); falling back to python -m mdoutline (probes REPO SOURCE, not a deployed install)",
+                    f"mdoutline: warning: MDOUTLINE_BIN '{override}' is unparseable ({e}); falling back to python -m mdoutline (probes REPO SOURCE, not a deployed install)",
                     file=sys.stderr,
                 )
-        else:
-            # Not set
+        elif script_cmd is None:
+            # No override and no console script anywhere (foreign interpreter)
             print(
                 "mdoutline: warning: mdoutline console script not installed; falling back to python -m mdoutline (probes REPO SOURCE, not a deployed install)",
                 file=sys.stderr,

@@ -337,6 +337,28 @@ def test_seam_resolver_none_only_when_nothing_discoverable():
         assert isinstance(cmd, list) and cmd and all(isinstance(t, str) for t in cmd)
 
 
+def test_seam_default_command_imports_this_checkouts_module(monkeypatch):
+    """Routing pin (review r1 class 1): the seam's default command must make
+    the child import THIS checkout's mdoutline.py - the venv console script's
+    editable install imports the MAIN checkout's module, which left every
+    CLI pin unable to fail against worktree code. Fails if the seam is
+    re-pointed at the installed console script."""
+    monkeypatch.delenv("MDOUTLINE_BIN", raising=False)
+    cmd, env = conftest._require_cmd_and_env()
+    probe = subprocess.run(
+        [cmd[0], "-c", "import mdoutline; print(mdoutline.__file__)"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+    assert probe.returncode == 0, f"probe {cmd} failed: {probe.stderr}"
+    child_file = probe.stdout.strip()
+    assert child_file == str(mdoutline.__file__), (
+        f"seam command imports {child_file!r}, not this checkout's {mdoutline.__file__!r}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # R3 - PYTHONPATH construction (observable via the pipeline fixture + shell)
 # Conditional since mdoutline-4ta: injected on -m module invocations only -
