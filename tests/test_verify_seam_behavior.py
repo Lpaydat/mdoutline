@@ -350,7 +350,9 @@ def _pin_fallback(monkeypatch):
     monkeypatch.setattr(conftest, "resolve_mdoutline_cmd", lambda: None)
 
 
-def test_seam_pythonpath_fallback_repo_root_first_preserving_existing(run_cli_pipeline, monkeypatch):
+def test_seam_pythonpath_fallback_repo_root_first_preserving_existing(
+    run_cli_pipeline, monkeypatch
+):
     """Fallback keeps foreign-interpreter portability: REPO_ROOT first,
     caller's PYTHONPATH preserved after it."""
     _pin_fallback(monkeypatch)
