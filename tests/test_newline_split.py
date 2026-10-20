@@ -29,6 +29,33 @@ def test_form_feed_not_split(tmp_path, run_cli):
     assert result.stdout == ""
 
 
+def test_file_separator_not_split(tmp_path, run_cli):
+    """\\x1c (file separator) must NOT split lines."""
+    test_file = tmp_path / "test.md"
+    test_file.write_text("Intro: cost\x1c## Fake heading\n", encoding="utf-8")
+    result = run_cli([str(test_file)])
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_group_separator_not_split(tmp_path, run_cli):
+    """\\x1d (group separator) must NOT split lines."""
+    test_file = tmp_path / "test.md"
+    test_file.write_text("Intro: cost\x1d## Fake heading\n", encoding="utf-8")
+    result = run_cli([str(test_file)])
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_record_separator_not_split(tmp_path, run_cli):
+    """\\x1e (record separator) must NOT split lines."""
+    test_file = tmp_path / "test.md"
+    test_file.write_text("Intro: cost\x1e## Fake heading\n", encoding="utf-8")
+    result = run_cli([str(test_file)])
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
 def test_crlf_split_correctly(tmp_path, run_cli):
     """CRLF line endings should split correctly."""
     test_file = tmp_path / "test.md"
