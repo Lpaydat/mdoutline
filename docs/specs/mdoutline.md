@@ -39,9 +39,12 @@ Rust CLI stack was not used (spec pins Python stdlib-only).
 - Extraction: line-oriented ATX scan. A line is a heading iff it is outside a
   fenced code block, has ≤ 3 leading spaces (CommonMark tolerance), then 1–6
   `#`, then a space or end of line; trailing closing `#`s are stripped from the
-  text. Fences open/close on lines whose first non-space characters are three
-  or more backticks or tildes (matching char); an unclosed fence at EOF fences
-  to the end. Setext headings are not recognized (spec).
+  text. Fences open on lines whose first non-space characters are three or
+  more backticks or tildes (matching char); a closing fence has the same
+  fence char as the opener, a run of at least three and at least the opener's
+  length, and nothing after the run but spaces or tabs (no info string); an
+  unclosed fence at EOF fences to the end. Setext headings are not recognized
+  (spec).
 - Output shape pinned so tests are golden: bullet `- `, indent 2 spaces per
   heading depth below h1 (h1 → column 0). `--numbers` uses depth-indexed
   counters (a heading at depth d increments counter[d] and resets deeper
