@@ -42,7 +42,7 @@ Rust CLI stack was not used (spec pins Python stdlib-only).
   text. Fences open on lines whose first non-space characters are three or
   more backticks or tildes (matching char); a closing fence has the same
   fence char as the opener, a run of at least three and at least the opener's
-  length, and nothing after the run but spaces or tabs (no info string); an
+  length, and nothing after the run but whitespace (no info string); an
   unclosed fence at EOF fences to the end. Setext headings are not recognized
   (spec).
 - Output shape pinned so tests are golden: bullet `- `, indent 2 spaces per
