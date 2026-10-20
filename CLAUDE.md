@@ -2,6 +2,20 @@
 
 This file provides instructions and context for AI coding agents working on this project.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live in bd (beads), a local Dolt DB under `.beads/` — not GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary, carried as bd labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:7510c1e2 -->
 ## Beads Issue Tracker
 
