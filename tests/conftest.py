@@ -9,8 +9,10 @@ Two-tier command resolution design:
   tests.
 - Runner-level fallback (_require_cmd_and_env): when the strict resolver
   returns None, falls back to [sys.executable, "-m", "mdoutline"] for
-  foreign-interpreter portability. This allows tests to run under any
-  Python interpreter when the repo root is on PYTHONPATH.
+  foreign-interpreter portability. Any `-m mdoutline` command injects
+  PYTHONPATH=REPO_ROOT so the child can import the repo-root module; a
+  script-found command gets no injection, so repo source cannot shadow
+  the installed artifact.
 
 The scripts dir comes from sysconfig under the ACTIVE interpreter - never
 derived from the interpreter executable's own path, which would follow
@@ -66,14 +68,21 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _require_cmd_and_env() -> tuple[list[str], dict[str, str]]:
-    """Resolve mdoutline command and build environment with PYTHONPATH.
+    """Resolve mdoutline command and build the child environment.
 
     Two-tier resolution for portability:
     1. Strict script resolver (MDOUTLINE_BIN -> console script on PATH ->
        sysconfig scripts dir). Used for deployment-under-test detection.
+       A script-found command runs with the caller's environment untouched:
+       injecting PYTHONPATH would let repo source shadow the installed
+       artifact under test.
     2. Fallback to [sys.executable, "-m", "mdoutline"] when no script is
-       found, enabling tests under any interpreter when repo root is on
-       PYTHONPATH (foreign-interpreter portability).
+       found, enabling tests under any interpreter (foreign-interpreter
+       portability).
+
+    Any `-m mdoutline` command (fallback or MDOUTLINE_BIN module override)
+    injects PYTHONPATH = REPO_ROOT + existing so the child can import the
+    repo-root module; script commands get no injection.
 
     Returns:
         Tuple of (cmd_list, env_dict).
@@ -107,12 +116,15 @@ def _require_cmd_and_env() -> tuple[list[str], dict[str, str]]:
             )
         cmd = [sys.executable, "-m", "mdoutline"]
 
+    # A `-m mdoutline` invocation needs the repo root importable (foreign-
+    # interpreter portability); a script path must NOT get PYTHONPATH - repo
+    # source would shadow the installed artifact under test (mdoutline-4ta).
     env = os.environ.copy()
-    pythonpath = str(REPO_ROOT)
-    if existing := os.environ.get("PYTHONPATH"):
-        pythonpath += os.pathsep + existing
-    env["PYTHONPATH"] = pythonpath
-
+    if cmd[1:3] == ["-m", "mdoutline"]:
+        pythonpath = str(REPO_ROOT)
+        if existing := os.environ.get("PYTHONPATH"):
+            pythonpath += os.pathsep + existing
+        env["PYTHONPATH"] = pythonpath
     return cmd, env
 
 

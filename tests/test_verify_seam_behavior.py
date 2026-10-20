@@ -9,7 +9,8 @@ Every expected output below was derived BY HAND from the CLI contract
 
 Tests exercise the seam ONLY through its public surface: the run_cli /
 run_cli_pipeline / write_md_file fixtures and resolve_mdoutline_cmd.
-No implementation internals are imported or monkeypatched.
+No mdoutline internals are imported or monkeypatched; the one patch is
+conftest's own resolver (forced to None) to pin the -m fallback branch.
 """
 
 from __future__ import annotations
@@ -18,10 +19,12 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
+import conftest
 import mdoutline
 from conftest import resolve_mdoutline_cmd
 
@@ -336,23 +339,62 @@ def test_seam_resolver_none_only_when_nothing_discoverable():
 
 # ---------------------------------------------------------------------------
 # R3 - PYTHONPATH construction (observable via the pipeline fixture + shell)
+# Conditional since mdoutline-4ta: injected on the -m fallback path only, so
+# a script-found command imports the installed artifact, not repo source.
 # ---------------------------------------------------------------------------
 
 
-def test_seam_pythonpath_repo_root_first_preserving_existing(run_cli_pipeline, monkeypatch):
-    monkeypatch.setenv("MDOUTLINE_BIN", r"printf 'PP:%s\n'")
+def _pin_fallback(monkeypatch):
+    """Force the strict resolver to None so the seam takes its -m fallback."""
+    monkeypatch.delenv("MDOUTLINE_BIN", raising=False)
+    monkeypatch.setattr(conftest, "resolve_mdoutline_cmd", lambda: None)
+
+
+def test_seam_pythonpath_fallback_repo_root_first_preserving_existing(run_cli_pipeline, monkeypatch):
+    """Fallback keeps foreign-interpreter portability: REPO_ROOT first,
+    caller's PYTHONPATH preserved after it."""
+    _pin_fallback(monkeypatch)
     monkeypatch.setenv("PYTHONPATH", "/opt/preexisting")
-    result = run_cli_pipeline("$PYTHONPATH", stdin="")
+    result = run_cli_pipeline(">/dev/null && printf 'PP:%s\\n' \"$PYTHONPATH\"", stdin="")
     assert result.returncode == 0
     assert result.stdout == f"PP:{REPO_ROOT}{os.pathsep}/opt/preexisting\n"
 
 
-def test_seam_pythonpath_repo_root_alone_when_unset(run_cli_pipeline, monkeypatch):
+def test_seam_pythonpath_fallback_repo_root_alone_when_unset(run_cli_pipeline, monkeypatch):
+    _pin_fallback(monkeypatch)
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    result = run_cli_pipeline(">/dev/null && printf 'PP:%s\\n' \"$PYTHONPATH\"", stdin="")
+    assert result.returncode == 0
+    assert result.stdout == f"PP:{REPO_ROOT}\n"
+
+
+def test_seam_pythonpath_module_override_injects_repo_root(run_cli_pipeline, monkeypatch):
+    """An MDOUTLINE_BIN `-m mdoutline` override is a module invocation: it
+    needs the repo root importable, so the injection is load-bearing
+    (run_cli_module in test_behavior_numbers_verify.py depends on this)."""
+    monkeypatch.setenv("MDOUTLINE_BIN", f"{sys.executable} -m mdoutline")
+    monkeypatch.setenv("PYTHONPATH", "/opt/preexisting")
+    result = run_cli_pipeline(">/dev/null && printf 'PP:%s\\n' \"$PYTHONPATH\"", stdin="")
+    assert result.returncode == 0
+    assert result.stdout == f"PP:{REPO_ROOT}{os.pathsep}/opt/preexisting\n"
+
+
+def test_seam_pythonpath_script_found_not_injected(run_cli_pipeline, monkeypatch):
+    """Script-found command runs with the caller's env untouched: repo source
+    must not shadow the installed artifact via PYTHONPATH."""
+    monkeypatch.setenv("MDOUTLINE_BIN", r"printf 'PP:%s\n'")
+    monkeypatch.setenv("PYTHONPATH", "/opt/preexisting")
+    result = run_cli_pipeline("$PYTHONPATH", stdin="")
+    assert result.returncode == 0
+    assert result.stdout == "PP:/opt/preexisting\n"
+
+
+def test_seam_pythonpath_script_found_absent_when_unset(run_cli_pipeline, monkeypatch):
     monkeypatch.setenv("MDOUTLINE_BIN", r"printf 'PP:%s\n'")
     monkeypatch.delenv("PYTHONPATH", raising=False)
     result = run_cli_pipeline("$PYTHONPATH", stdin="")
     assert result.returncode == 0
-    assert result.stdout == f"PP:{REPO_ROOT}\n"
+    assert result.stdout == "PP:\n"
 
 
 # ---------------------------------------------------------------------------
