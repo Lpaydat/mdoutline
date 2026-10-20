@@ -19,8 +19,6 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-import pytest
-
 from conftest import resolve_mdoutline_cmd
 
 REPO = Path(__file__).resolve().parent.parent
@@ -226,10 +224,13 @@ def test_make_lint_and_format_check_green():
 
 
 def test_console_script_still_runs():
-    """Deployment readiness: the installed CLI entry point works post-change."""
+    """Deployment readiness: the installed CLI entry point works post-change.
+    No skip: in the shared-venv gate env an unresolvable script is a failure,
+    so a broken console-script install cannot masquerade as a skip."""
     cmd = resolve_mdoutline_cmd()
-    if cmd is None:
-        pytest.skip("mdoutline command not found - set MDOUTLINE_BIN or install the package")
+    assert cmd is not None, (
+        "mdoutline command not resolvable - set MDOUTLINE_BIN or install the package"
+    )
     proc = subprocess.run(
         cmd, input="# Hello\n## World\n", capture_output=True, text=True, timeout=TIMEOUT_S
     )

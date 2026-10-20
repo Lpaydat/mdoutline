@@ -545,6 +545,34 @@ def test_deploy_venv_off_path_suites_green_no_skips():
     assert "skipped" not in tail, f"unexpected skips with script on disk:\n{tail}"
 
 
+def test_deploy_shim_script_suites_green_no_skips(tmp_path):
+    """Gate-env binding of the no-skip property (no .venv needed): with a
+    console-script stand-in resolvable via MDOUTLINE_BIN, the four dev suites
+    run green with zero skips. Under a resolver-None regression the suite
+    stays green but skips - which this probe fails on."""
+    shim = tmp_path / "mdoutline"
+    shim.write_text(
+        f'#!/bin/sh\nexport PYTHONPATH="{REPO_ROOT}"\nexec "{sys.executable}" -m mdoutline "$@"\n',
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+    env = _stripped_env()
+    env["MDOUTLINE_BIN"] = str(shim)
+    probe = subprocess.run(
+        [sys.executable, "-m", "pytest", *[str(REPO_ROOT / s) for s in FOUR_SUITES]],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    tail = probe.stdout[-2000:]
+    assert probe.returncode == 0, tail
+    assert re.search(r"\d+ passed", tail), tail
+    assert not re.search(r"\d+ (failed|error)", tail), tail
+    assert "skipped" not in tail, f"unexpected skips with script resolvable:\n{tail}"
+
+
 def test_deploy_foreign_interpreter_skips_with_verbatim_reason():
     """R3+R6: foreign interpreter, script absent everywhere - four dev suites run
     green via the -m fallback; every deployment test skips with the unified
