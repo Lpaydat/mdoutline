@@ -52,7 +52,7 @@ def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
             # - leading spaces <= 3
             # - first non-space char matches fence_char
             # - run length >= max(3, fence_count)
-            # - nothing after run except spaces
+            # - nothing after run except spaces or tabs
             if leading_spaces <= 3 and stripped.startswith(fence_char):
                 # Count consecutive fence characters
                 closing_count = 0
@@ -63,9 +63,9 @@ def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
                         break
                 # Check if this is a valid closer
                 if closing_count >= max(3, fence_count):
-                    # Check that nothing after the run except spaces
+                    # CommonMark 0.31 4.5: nothing after the run but spaces or tabs
                     remaining = stripped[closing_count:]
-                    if not remaining or remaining.isspace():
+                    if not remaining.strip(" \t"):
                         in_fence = False
                         fence_char = ""
                         fence_count = 0

@@ -65,3 +65,35 @@ def test_fence_with_four_leading_spaces_does_not_close():
     lines = ["# Doc", "```", "# inside", "    ```", "# still inside", "```", "# After"]
     result = extract_headings(lines)
     assert result == [(1, "Doc"), (1, "After")]
+
+
+def test_fence_closer_trailing_space_still_closes():
+    """CommonMark 0.31 4.5: a closing fence may be followed by spaces."""
+    lines = ["# Doc", "```", "# inside", "``` ", "# After"]
+    result = extract_headings(lines)
+    assert result == [(1, "Doc"), (1, "After")]
+
+
+def test_fence_closer_trailing_tab_still_closes():
+    """CommonMark 0.31 4.5: a closing fence may be followed by tabs."""
+    lines = ["# Doc", "```", "# inside", "```\t", "# After"]
+    result = extract_headings(lines)
+    assert result == [(1, "Doc"), (1, "After")]
+
+
+def test_fence_closer_formfeed_tail_does_not_close():
+    """A formfeed after the closer run is an info string, not whitespace:
+    the ```\\x0c line stays fenced content, so '# phantom' is never a
+    heading; the bare ``` then closes and '# After' legitimately is one."""
+    lines = ["# Doc", "```", "```\x0c", "# phantom", "```", "# After"]
+    result = extract_headings(lines)
+    assert result == [(1, "Doc"), (1, "After")]
+
+
+def test_fence_closer_nbsp_tail_does_not_close():
+    """NBSP after the closer run is an info string, not whitespace:
+    the ```\\xa0 line stays fenced content, so '# phantom' is never a
+    heading; the bare ``` then closes and '# After' legitimately is one."""
+    lines = ["# Doc", "```", "```\xa0", "# phantom", "```", "# After"]
+    result = extract_headings(lines)
+    assert result == [(1, "Doc"), (1, "After")]
