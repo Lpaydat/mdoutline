@@ -121,7 +121,7 @@ def _require_cmd_and_env() -> tuple[list[str], dict[str, str]]:
     # interpreter portability); a script path must NOT get PYTHONPATH - repo
     # source would shadow the installed artifact under test (mdoutline-4ta).
     env = os.environ.copy()
-    if cmd[1:3] == ["-m", "mdoutline"]:
+    if any(cmd[i : i + 2] == ["-m", "mdoutline"] for i in range(len(cmd) - 1)):
         pythonpath = str(REPO_ROOT)
         if existing := os.environ.get("PYTHONPATH"):
             pythonpath += os.pathsep + existing

@@ -382,6 +382,17 @@ def test_seam_pythonpath_module_override_injects_repo_root(run_cli_pipeline, mon
     assert result.stdout == f"PP:{REPO_ROOT}{os.pathsep}/opt/preexisting\n"
 
 
+def test_seam_pythonpath_flag_between_interp_and_module_injects(run_cli_pipeline, monkeypatch):
+    """A flag between the interpreter and the module (`python -u -m mdoutline`)
+    is still a `-m mdoutline` command: the adjacent pair anywhere in argv
+    injects the repo root (conftest docstrings promise any -m mdoutline)."""
+    monkeypatch.setenv("MDOUTLINE_BIN", f"{sys.executable} -u -m mdoutline")
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    result = run_cli_pipeline(">/dev/null && printf 'PP:%s\\n' \"$PYTHONPATH\"", stdin="")
+    assert result.returncode == 0
+    assert result.stdout == f"PP:{REPO_ROOT}\n"
+
+
 def test_seam_pythonpath_script_found_not_injected(run_cli_pipeline, monkeypatch):
     """Script-found command runs with the caller's env untouched: repo source
     must not shadow the installed artifact via PYTHONPATH."""
