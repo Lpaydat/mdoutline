@@ -21,14 +21,15 @@ def test_dash_argument_empty_stdin(run_cli):
     assert result.stdout == b""
 
 
-def test_pipe_with_dash_vs_no_arg(run_cli):
-    """Verify 'printf doc | mdoutline' vs 'printf doc | mdoutline -' produce identical output."""
+def test_pipe_with_dash_vs_no_arg(run_cli_pipeline):
+    """'doc | mdoutline' vs 'doc | mdoutline -' through a real shell run
+    (shell=True, doc piped into the shell's stdin) produce identical output."""
     doc = "# A\n## B\n### C\n"
 
-    result_no_arg = run_cli([], stdin=doc.encode())
-    result_dash = run_cli(["-"], stdin=doc.encode())
+    result_no_arg = run_cli_pipeline("", stdin=doc)
+    result_dash = run_cli_pipeline("-", stdin=doc)
 
     assert result_no_arg.returncode == 0
     assert result_dash.returncode == 0
     assert result_no_arg.stdout == result_dash.stdout
-    assert result_no_arg.stdout == b"- A\n  - B\n    - C\n"
+    assert result_no_arg.stdout == "- A\n  - B\n    - C\n"
