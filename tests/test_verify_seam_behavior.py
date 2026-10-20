@@ -467,6 +467,17 @@ def test_seam_pipeline_downstream_pipe(run_cli_pipeline):
     assert result.stdout == "  - Alpha\n"
 
 
+def test_seam_pipeline_join_keeps_full_argv(run_cli_pipeline, monkeypatch):
+    """Gate-env binding (mdoutline-bti): run_cli_pipeline must shlex.join the
+    FULL resolved argv. Under a cmd[:1] join regression the multi-token
+    `python -m mdoutline` override degrades to the bare interpreter, which
+    rejects the CLI flag - this fails in any env, .venv or not."""
+    monkeypatch.setenv("MDOUTLINE_BIN", f"{sys.executable} -m mdoutline")
+    result = run_cli_pipeline("--numbers", stdin=DOC)
+    assert result.returncode == 0
+    assert result.stdout == OUT_NUMBERS
+
+
 # ---------------------------------------------------------------------------
 # R7 - C2 boundary: conftest shares runner/writer/resolver ONLY
 # ---------------------------------------------------------------------------
