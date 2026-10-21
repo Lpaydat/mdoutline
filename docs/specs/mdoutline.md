@@ -12,7 +12,8 @@ outline. I read a lot of long notes and want to see their skeleton at a glance.
 - `mdoutline --max-depth 2 NOTES.md` — only headings up to depth 2.
 - `mdoutline --numbers NOTES.md` — prefix each entry with hierarchical section
   numbers (1., 1.1, 1.1.1, ...).
-- No file argument: read stdin instead (`cat NOTES.md | mdoutline`).
+- No file argument (or `-` as the file argument): read stdin instead
+  (`cat NOTES.md | mdoutline`).
 - Missing file: clear error message on stderr, exit code 1. Normal runs exit 0.
 
 ## Things I care about
@@ -34,7 +35,9 @@ Rust CLI stack was not used (spec pins Python stdlib-only).
 
 - Single module `mdoutline.py` at repo root; no packaging beyond what pytest
   needs. CLI surface frozen as specced: optional positional file argument
-  (absent → read stdin), `--max-depth N` (keep headings with depth ≤ N),
+  (absent → read stdin; `-` as the argument reads stdin too, behaving exactly
+  like no argument, including the `<stdin>` source name in error paths),
+  `--max-depth N` (keep headings with depth ≤ N),
   `--numbers`; errors to stderr, exit 1 on failure, exit 0 on success.
 - Extraction: line-oriented ATX scan. A line is a heading iff it is outside a
   fenced code block, has ≤ 3 leading spaces (CommonMark tolerance), then 1–6
@@ -62,7 +65,8 @@ pytest (per spec and the `python-cli` toolkit), ruff for linting; mypy skipped
   and tilde fences, indented openers, unclosed fence at EOF), depth parsing,
   trailing-`#` stripping, ≤3-space tolerance, empty input, file with no
   headings, 7+ `#` marks (not a heading).
-- CLI behaviour tests via subprocess: file argument, stdin fallback,
+- CLI behaviour tests via subprocess: file argument, stdin fallback (pinned
+  with and without positional `-`),
   `--max-depth`, `--numbers`, missing file → non-empty stderr + exit code 1,
   normal runs exit 0.
 
