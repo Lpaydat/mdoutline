@@ -163,7 +163,7 @@ def test_four_or_more_leading_spaces_not_a_heading():
 
 
 def test_hash_without_space_not_a_heading():
-    """Hashes without a following space are not headings."""
+    """Hashes without a following space or tab are not headings."""
     lines = [
         "# Valid heading",
         "#notvalid - no space after hash",
@@ -173,6 +173,19 @@ def test_hash_without_space_not_a_heading():
     ]
     result = mdoutline.extract_headings(lines)
     assert result == [(1, "Valid heading"), (2, "Valid too"), (4, "Still valid")]
+
+
+def test_tab_after_hashes_is_heading():
+    """A tab after the hashes separates like a space (CommonMark 0.31 §ATX)."""
+    result = mdoutline.extract_headings(
+        [
+            "#\tTab sep",
+            "##\tTabbed",
+            "#\t\tDouble tab",
+            "## C#",
+        ]
+    )
+    assert result == [(1, "Tab sep"), (2, "Tabbed"), (1, "Double tab"), (2, "C#")]
 
 
 def test_trailing_closing_hashes_stripped():

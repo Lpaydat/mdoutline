@@ -86,14 +86,14 @@ def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
             else:
                 break
 
-        # Must have 1-6 hashes, followed by space or end of line
+        # Must have 1-6 hashes, followed by space, tab, or end of line
         if hash_count < 1 or hash_count > 6:
             continue
 
         # Check what comes after the hashes
         if len(stripped) > hash_count:
-            # Must have a space after the hashes
-            if stripped[hash_count] != " ":
+            # Must have a space or tab after the hashes (CommonMark §ATX)
+            if stripped[hash_count] not in " \t":
                 continue
             # Text starts after the space
             text = stripped[hash_count + 1 :]
@@ -104,7 +104,7 @@ def extract_headings(lines: Iterable[str]) -> list[tuple[int, str]]:
         # Strip trailing closing hashes per CommonMark:
         # Only strip a trailing '#' run when it is a CommonMark closing sequence:
         # the run must be preceded by a space/tab, or the run is the ENTIRE text
-        # (it followed the opener's separating space).
+        # (it followed the opener's separating space/tab).
         text = text.rstrip()
         if text:
             # Walk j left over trailing #s
